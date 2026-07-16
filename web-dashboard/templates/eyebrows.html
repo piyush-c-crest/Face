@@ -160,11 +160,7 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.02);
         }
         
-        .image-card img {
-            max-width: 250px;
-            height: auto;
-            border-radius: 100px;
-        }
+        .image-card img { width: 300px; height: 300px; object-fit: contain; border-radius: 12px; }
 
         /* BOTTOM SPLIT */
         .bottom-split {
@@ -503,22 +499,22 @@
         <div class="image-card">
             <div style="text-align:center;">
                 <p style="font-size:11px; color:var(--text-highlight); margin-bottom:6px; font-weight:600; letter-spacing:1px; text-transform:uppercase;">Cropped (Raw Pixels)</p>
-                <img id="rBrowImage" src="" alt="Right Brow" style="max-width:380px; max-height:320px; width:auto; height:auto; object-fit:contain; height:auto; border-radius:100px;">
+                <img id="rBrowImage" src="" alt="Right Brow">
                 <p style="margin-top:6px; font-size:12px; color:var(--text-secondary);">Right Eyebrow</p>
             </div>
             <div style="text-align:center;">
                 <p style="font-size:11px; color:var(--text-highlight); margin-bottom:6px; font-weight:600; letter-spacing:1px; text-transform:uppercase;">Cropped (Raw Pixels)</p>
-                <img id="lBrowImage" src="" alt="Left Brow" style="max-width:380px; max-height:320px; width:auto; height:auto; object-fit:contain; height:auto; border-radius:100px;">
+                <img id="lBrowImage" src="" alt="Left Brow">
                 <p style="margin-top:6px; font-size:12px; color:var(--text-secondary);">Left Eyebrow</p>
             </div>
             <div style="text-align:center;">
                 <p style="font-size:11px; color:var(--text-highlight); margin-bottom:6px; font-weight:600; letter-spacing:1px; text-transform:uppercase;">Extracted (White BG)</p>
-                <img id="rBrowImageWB" src="" alt="Right Brow White BG" style="max-width:380px; max-height:320px; width:auto; height:auto; object-fit:contain; height:auto; border-radius:12px;">
+                <img id="rBrowImageWB" src="" alt="Right Brow White BG">
                 <p style="margin-top:6px; font-size:12px; color:var(--text-secondary);">Right (White BG)</p>
             </div>
             <div style="text-align:center;">
                 <p style="font-size:11px; color:var(--text-highlight); margin-bottom:6px; font-weight:600; letter-spacing:1px; text-transform:uppercase;">Extracted (White BG)</p>
-                <img id="lBrowImageWB" src="" alt="Left Brow White BG" style="max-width:380px; max-height:320px; width:auto; height:auto; object-fit:contain; height:auto; border-radius:12px;">
+                <img id="lBrowImageWB" src="" alt="Left Brow White BG">
                 <p style="margin-top:6px; font-size:12px; color:var(--text-secondary);">Left (White BG)</p>
             </div>
         </div>

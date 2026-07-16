@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AestheticAI | Facial Mapping</title>
+    <meta name="description" content="AI-powered geometric facial aesthetic analysis.">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <div class="glow-orb"></div>
+            <h1>AestheticAI <span class="highlight">Map</span></h1>
+            <p>Advanced geometric analysis for cheek and eyebrow structures</p>
+        </header>
+
+        <main>
+            <!-- Upload Area -->
+            <div class="upload-section" id="dropzone">
+                <div id="uploadContent">
+                    <h3 style="margin-bottom: 2rem;">Upload 3 Photos for Full Analysis</h3>
+                    <div class="upload-grid" style="display: flex; justify-content: space-between; gap: 1rem;">
+                        <div class="upload-box glass-card" id="boxFront" onclick="document.getElementById('frontInput').click()">
+                            <input type="file" id="frontInput" accept="image/*" hidden>
+                            <div class="icon">👤</div>
+                            <h4>Front Face</h4>
+                            <p id="frontLabel" class="text-muted">Click to upload</p>
+                        </div>
+                        <div class="upload-box glass-card" id="boxLeft" onclick="document.getElementById('leftInput').click()">
+                            <input type="file" id="leftInput" accept="image/*" hidden>
+                            <div class="icon">👈</div>
+                            <h4>Left Profile</h4>
+                            <p id="leftLabel" class="text-muted">Click to upload</p>
+                        </div>
+                        <div class="upload-box glass-card" id="boxRight" onclick="document.getElementById('rightInput').click()">
+                            <input type="file" id="rightInput" accept="image/*" hidden>
+                            <div class="icon">👉</div>
+                            <h4>Right Profile</h4>
+                            <p id="rightLabel" class="text-muted">Click to upload</p>
+                        </div>
+                    </div>
+                    <button id="analyzeBtn" class="reset-btn hidden" style="margin-top: 2rem; width: 100%;">Run Analysis</button>
+                </div>
+                <!-- Loading State -->
+                <div id="loading" class="loading-state hidden">
+                    <div class="spinner"></div>
+                    <p class="pulse-text">Extracting facial and ear landmarks...</p>
+                </div>
+            </div>
+
+            <!-- Error State -->
+            <div id="errorBox" class="error-box hidden"></div>
+
+            <!-- Results Area -->
+            <div id="results" class="results-section hidden">
+                <div class="visuals-container">
+                    <div class="image-preview glass-card">
+                        <img id="cheekImage" src="" alt="Annotated Cheek Mapping">
+                        <div class="scan-line"></div>
+                    </div>
+                    <div class="eyebrow-preview glass-card" style="display:flex; flex-direction:column; gap:1rem; padding:1rem;">
+                        <img id="eyebrowFullImage" src="" alt="Full Eyebrow Mapping" style="width:100%; border-radius:8px; display:block;">
+                        <div style="display:flex; justify-content:space-between; gap:1rem;">
+                            <img id="rBrowImage" src="" alt="Right Brow" style="width:48%; border-radius:8px; object-fit:cover; display:block;">
+                            <img id="lBrowImage" src="" alt="Left Brow" style="width:48%; border-radius:8px; object-fit:cover; display:block;">
+                        </div>
+                    </div>
+                    <div class="ear-preview glass-card" style="display:flex; justify-content:space-between; gap:1rem; padding:1rem;">
+                        <div style="width:48%; text-align:center;">
+                            <h4 style="margin-bottom:0.5rem; font-weight:400; color:var(--text-muted);">Left Ear Caliper</h4>
+                            <img id="lEarImage" src="" alt="Left Ear" style="width:100%; border-radius:8px; object-fit:cover; display:block;">
+                        </div>
+                        <div style="width:48%; text-align:center;">
+                            <h4 style="margin-bottom:0.5rem; font-weight:400; color:var(--text-muted);">Right Ear Caliper</h4>
+                            <img id="rEarImage" src="" alt="Right Ear" style="width:100%; border-radius:8px; object-fit:cover; display:block;">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="reports">
+                    <div class="report-card glass-card">
+                        <div class="card-header">
+                            <span class="dot"></span>
+                            <h3>Cheek Structure Analysis</h3>
+                        </div>
+                        <p id="cheekText"></p>
+                    </div>
+                    
+                    <div class="report-card glass-card" style="animation-delay: 0.2s;">
+                        <div class="card-header">
+                            <span class="dot" style="background: #a78bfa;"></span>
+                            <h3>Eyebrow Structure Analysis</h3>
+                        </div>
+                        <p id="eyebrowText"></p>
+                    </div>
+
+                    <div class="report-card glass-card" style="animation-delay: 0.4s;">
+                        <div class="card-header">
+                            <span class="dot" style="background: #fca5a5;"></span>
+                            <h3>Ear Structure Analysis</h3>
+                        </div>
+                        <p id="earText"></p>
+                    </div>
+                </div>
+                
+                <button class="reset-btn" onclick="location.reload()">Analyze Another Photo</button>
+            </div>
+        </main>
+    </div>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

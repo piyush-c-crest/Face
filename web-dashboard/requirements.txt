@@ -1,0 +1,16 @@
+Flask==3.1.2
+
+torch==2.7.1
+transformers==4.56.0
+accelerate==1.10.1
+
+mediapipe==0.10.21
+tensorflow==2.19.0
+protobuf==4.25.8
+
+opencv-python==4.11.0.86
+Pillow==11.3.0
+numpy==1.26.4
+pandas==2.2.3
+matplotlib==3.10.5
+scikit-image==0.25.2

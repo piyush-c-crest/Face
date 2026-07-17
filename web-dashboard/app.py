@@ -200,6 +200,41 @@ def extract_chin_mediapipe(img_rgb: np.ndarray, pts: np.ndarray):
     return final_image, final_image
 
 
+def extract_cheeks_mediapipe(img_rgb: np.ndarray, pts: np.ndarray):
+    """
+    Extracts the cheeks region using MediaPipe landmarks and smooth B-spline interpolation.
+    Returns (white_crop, raw_crop) which are actually the full image with cheeks highlighted.
+    """
+    if pts is None or len(pts) == 0:
+        return None, None
+
+    RIGHT_CHEEK_INDICES = [114, 120, 47, 142, 203, 205, 207, 213, 215, 138, 132, 177, 147, 137, 234, 227, 116, 117, 118, 119, 121]
+    LEFT_CHEEK_INDICES = [343, 349, 277, 371, 423, 425, 427, 433, 435, 367, 361, 401, 376, 366, 454, 447, 345, 346, 347, 348, 350]
+
+    def get_smooth_polygon(indices):
+        pts_arr = np.array([pts[idx] for idx in indices])
+        pts_arr = np.vstack((pts_arr, pts_arr[0])) # Close polygon
+        
+        tck, u = splprep([pts_arr[:, 0], pts_arr[:, 1]], s=0, per=True)
+        unew = np.linspace(0, 1, 100)
+        out = splev(unew, tck)
+        smooth_pts = np.int32(np.vstack((out[0], out[1])).T)
+        return smooth_pts
+
+    right_pts = get_smooth_polygon(RIGHT_CHEEK_INDICES)
+    left_pts = get_smooth_polygon(LEFT_CHEEK_INDICES)
+
+    overlay = img_rgb.copy()
+    CHEEK_COLOR = (150, 170, 180)  # RGB color for cheek highlight
+    cv2.fillPoly(overlay, [right_pts], CHEEK_COLOR)
+    cv2.fillPoly(overlay, [left_pts], CHEEK_COLOR)
+
+    alpha = 0.65
+    final_image = cv2.addWeighted(overlay, alpha, img_rgb, 1 - alpha, 0)
+    
+    return final_image, final_image
+
+
 # ─────────────────────────────────────────────
 # Segmentation
 # ─────────────────────────────────────────────
@@ -990,7 +1025,14 @@ def analyze_all():
         wb_chin, cr_chin = extract_chin_mediapipe(img_rgb, pts)
         part_imgs["chin_mediapipe"] = {
             "white_bg": rgb_to_b64(wb_chin) if wb_chin is not None else None,
-            "cropped":  rgb_to_b64(cr_chin) if cr_chin is not None else None
+            "cropped": rgb_to_b64(cr_chin) if cr_chin is not None else None,
+        }
+
+        # Cheeks via Mediapipe
+        wb_cheeks, cr_cheeks = extract_cheeks_mediapipe(img_rgb, pts)
+        part_imgs["cheeks_mediapipe"] = {
+            "white_bg": rgb_to_b64(wb_cheeks) if wb_cheeks is not None else None,
+            "cropped": rgb_to_b64(cr_cheeks) if cr_cheeks is not None else None,
         }
 
         # ── Build per-feature response dicts ──
@@ -1090,9 +1132,9 @@ def analyze_all():
             "fullness":     cm.get("fullness", "N/A"),
             "height":       cm.get("height", "N/A"),
             "width_val":    float(cm.get("width_val") or 0),
-            # images (skin=1 for cheeks region)
-            "cheeks_image_white": part_imgs["skin"]["white_bg"],
-            "cheeks_image":       part_imgs["skin"]["cropped"],
+            # images (extracted via mediapipe)
+            "cheeks_image_white": part_imgs["cheeks_mediapipe"]["white_bg"],
+            "cheeks_image":       part_imgs["cheeks_mediapipe"]["cropped"],
         }
 
         jm = metrics.get("jaw", {})

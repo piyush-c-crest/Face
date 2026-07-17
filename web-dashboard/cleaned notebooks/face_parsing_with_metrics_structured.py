@@ -20,13 +20,13 @@ This notebook performs comprehensive facial segmentation and extracts detailed f
 ## 1. Setup & Dependencies
 """
 
-!pip install -q transformers accelerate pillow matplotlib opencv-python scikit-image pandas
+# !pip install -q transformers accelerate pillow matplotlib opencv-python scikit-image pandas
 
-!pip install protobuf==5.29.5
-!pip install tensorflow==2.19.0
-!pip install mediapipe==0.10.21
+# !pip install protobuf==5.29.5
+# !pip install tensorflow==2.19.0
+# !pip install mediapipe==0.10.21
 
-!pip freeze > requirements.txt
+# !pip freeze > requirements.txt
 
 import mediapipe as mp
 import google.protobuf
@@ -656,5 +656,5 @@ for idx, name in LABEL_MAP.items():
 
 print(f"\n✓ All {len(LABEL_MAP)} facial parts saved to '{output_dir}/' directory")
 
-!zip -r /content/facial_parts-2.zip /content/facial_parts-2
+# !zip -r /content/facial_parts-2.zip /content/facial_parts-2
 

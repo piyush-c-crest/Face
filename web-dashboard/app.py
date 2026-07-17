@@ -26,6 +26,7 @@ import math
 from PIL import ImageDraw
 import tempfile
 from scipy.interpolate import splprep, splev
+from scipy.stats import skew as scipy_skew
 # App setup
 # ─────────────────────────────────────────────
 from dotenv import load_dotenv
@@ -676,6 +677,165 @@ def analyze_hair_color(img_rgb, hair_mask, n_colors=5):
         return {"primary_category": "N/A", "primary_hex": None, "palette": []}
 
 
+
+# ─────────────────────────────────────────────
+# Skin Analysis
+# ─────────────────────────────────────────────
+
+# MediaPipe landmark indices used by the notebook
+_FACE_OVAL = [10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,378,400,377,152,148,176,149,150,136,172,58,132,93,234,127,162,21,54,103,67,109]
+_LIPS = [61,146,91,181,84,17,314,405,321,375,291,308,324,318,402,317,14,87,178,88,95]
+_LEFT_EYE = [33,7,163,144,145,153,154,155,133,173,157,158,159,160,161,246]
+_RIGHT_EYE = [362,382,381,380,374,373,390,249,263,466,388,387,386,385,384,398]
+_LEFT_EYEBROW = [70,63,105,66,107,55,65,52,53,46]
+_RIGHT_EYEBROW = [300,293,334,296,336,285,295,282,283,276]
+_L_UNDER_EYE = [110,205,50,207,214,192,212]
+_R_UNDER_EYE = [339,425,280,427,434,416,432]
+
+
+def analyze_skin(img_rgb: np.ndarray, pts: np.ndarray):
+    """
+    Full skin analysis using MediaPipe face landmarks.
+    pts must be an (N,2) array of (x,y) pixel coords for 478 landmarks.
+    Returns a dict with classification labels, scientific metrics, and base64 images.
+    """
+    try:
+        h, w = img_rgb.shape[:2]
+
+        def get_pts(indices):
+            return np.array([(int(pts[i][0]), int(pts[i][1])) for i in indices], dtype=np.int32)
+
+        face_pts   = get_pts(_FACE_OVAL)
+        lips_pts   = get_pts(_LIPS)
+        l_eye_pts  = get_pts(_LEFT_EYE)
+        r_eye_pts  = get_pts(_RIGHT_EYE)
+        l_brow_pts = get_pts(_LEFT_EYEBROW)
+        r_brow_pts = get_pts(_RIGHT_EYEBROW)
+        l_under    = get_pts(_L_UNDER_EYE)
+        r_under    = get_pts(_R_UNDER_EYE)
+
+        # Build face oval mask
+        face_mask = np.zeros((h, w), dtype=np.uint8)
+        cv2.fillPoly(face_mask, [face_pts], 255)
+
+        # Exclude eyes / eyebrows / lips
+        exclude_mask = np.zeros((h, w), dtype=np.uint8)
+        for pts_feat in [lips_pts, l_eye_pts, r_eye_pts, l_brow_pts, r_brow_pts]:
+            hull = cv2.convexHull(pts_feat)
+            cv2.fillConvexPoly(exclude_mask, hull, 255)
+
+        skin_mask = cv2.bitwise_and(face_mask, cv2.bitwise_not(exclude_mask))
+
+        # Under-eye mask
+        under_eye_mask = np.zeros((h, w), dtype=np.uint8)
+        cv2.fillPoly(under_eye_mask, [cv2.convexHull(l_under)], 255)
+        cv2.fillPoly(under_eye_mask, [cv2.convexHull(r_under)], 255)
+
+        # Convert to LAB
+        img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+        lab_img  = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2LAB)
+        l_ch, a_ch, b_ch = cv2.split(lab_img)
+
+        skin_pixels_l = l_ch[skin_mask == 255]
+        skin_pixels_a = a_ch[skin_mask == 255]
+        skin_pixels_b = b_ch[skin_mask == 255]
+
+        mean_a = float(np.mean(skin_pixels_a))
+        mean_b = float(np.mean(skin_pixels_b))
+        mean_l = float(np.mean(skin_pixels_l))
+
+        # ── Undertone ──
+        b_offset = mean_b - 128
+        a_offset = mean_a - 128
+        if b_offset > 10 and a_offset < 10:
+            undertone = "Warm"
+        elif b_offset > 5 and a_offset < 5:
+            undertone = "Neutral-Warm"
+        elif a_offset > 10 and b_offset < 5:
+            undertone = "Cool"
+        elif a_offset > 5:
+            undertone = "Neutral-Cool"
+        else:
+            undertone = "Neutral"
+
+        # ── Redness / blemishing ──
+        a_skin = cv2.bitwise_and(a_ch, a_ch, mask=skin_mask)
+        _, red_mask = cv2.threshold(a_skin, mean_a + 15, 255, cv2.THRESH_BINARY)
+        num_labels, _, stats, _ = cv2.connectedComponentsWithStats(red_mask, connectivity=8)
+        blemish_count = sum(1 for i in range(1, num_labels) if 5 < stats[i, cv2.CC_STAT_AREA] < 500)
+        if blemish_count < 3:   blemishing = "Clear"
+        elif blemish_count < 10: blemishing = "Mild"
+        elif blemish_count < 25: blemishing = "Moderate"
+        else:                    blemishing = "Severe"
+
+        # ── Roughness / Texture (RIN) ──
+        gray_img   = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+        laplacian  = np.abs(cv2.Laplacian(gray_img, cv2.CV_64F))
+        laplacian  = np.uint8(np.clip(laplacian, 0, 255))
+        variance   = float(np.var(laplacian[skin_mask == 255]))
+        rin_roughness = float(np.clip(0.05 + (variance / 3000.0), 0.05, 0.30))
+        if rin_roughness < 0.10:   texture = "Smooth"
+        elif rin_roughness < 0.14: texture = "Slightly Textured"
+        else:                      texture = "Textured / Rough"
+
+        # ── Oiliness (luminance skewness) ──
+        luminance_skew = float(scipy_skew(skin_pixels_l))
+        if luminance_skew > 0.30:   oiliness = "Oily / Shiny"
+        elif luminance_skew > 0.0:  oiliness = "Normal / Combination"
+        else:                        oiliness = "Matte / Dry"
+
+        # ── Evenness (color std dev → homogeneity RIN) ──
+        std_l = float(np.std(skin_pixels_l))
+        std_a = float(np.std(skin_pixels_a))
+        std_b = float(np.std(skin_pixels_b))
+        total_std = (std_l + std_a + std_b) / 3.0
+        homogeneity_rin = float(np.clip(0.10 + (total_std / 50.0), 0.10, 0.45))
+        if homogeneity_rin < 0.20:   evenness = "Even"
+        elif homogeneity_rin < 0.28: evenness = "Slightly Uneven"
+        else:                         evenness = "Uneven"
+
+        # ── Dark circles ──
+        mean_l_under = float(np.mean(l_ch[under_eye_mask == 255])) if np.any(under_eye_mask == 255) else mean_l
+        dark_circles = "Detected" if mean_l_under < mean_l * 0.9 else "Not Prominent"
+
+        # ── Skin-only image (face oval, white background) ──
+        skin_img_white = np.ones_like(img_rgb) * 255
+        face_mask_bool = face_mask == 255
+        skin_img_white[face_mask_bool] = img_rgb[face_mask_bool]
+        # Also blank out the background outside face
+        skin_img_b64 = rgb_to_b64(skin_img_white)
+
+        return {
+            # Classifications (for cards)
+            "undertone":     undertone,
+            "blemishing":    blemishing,
+            "evenness":      evenness,
+            "texture":       texture,
+            "oiliness":      oiliness,
+            "dark_circles":  dark_circles,
+            # Scientific metrics
+            "roughness_rin":     round(rin_roughness, 2),
+            "homogeneity_rin":   round(homogeneity_rin, 2),
+            "oiliness_skew":     round(luminance_skew, 2),
+            "blemish_count":     blemish_count,
+            "mean_redness_a":    round(mean_a, 1),
+            "mean_luminance_l":  round(mean_l, 1),
+            "under_eye_l":       round(mean_l_under, 1),
+            # Image
+            "skin_image": skin_img_b64,
+        }
+    except Exception as e:
+        print(f"[WARN] Skin analysis failed: {e}")
+        import traceback; traceback.print_exc()
+        return {
+            "undertone": "N/A", "blemishing": "N/A", "evenness": "N/A",
+            "texture": "N/A", "oiliness": "N/A", "dark_circles": "N/A",
+            "roughness_rin": None, "homogeneity_rin": None, "oiliness_skew": None,
+            "blemish_count": None, "mean_redness_a": None, "mean_luminance_l": None,
+            "under_eye_l": None, "skin_image": None,
+        }
+
+
 # Smile classifiers
 def classify_smile_width(smile_w_mm):
     if smile_w_mm is None: return "N/A"
@@ -1034,6 +1194,11 @@ def ear():
     return render_template("ear.html")
 
 
+@app.route("/skin")
+def skin():
+    return render_template("skin.html")
+
+
 def extract_ear_roboflow(pil_img: Image.Image, mm_per_px: float = None):
     """
     Uses Roboflow API to segment the ear from a side-face image.
@@ -1199,6 +1364,9 @@ def analyze_all():
         # ── Hair Color Analysis ──
         hair_mask = (labels == 13)
         hair_color_analysis = analyze_hair_color(img_rgb, hair_mask)
+
+        # ── Skin Analysis ──
+        skin_data = analyze_skin(img_rgb, pts)
 
 
         em = metrics.get("eyebrow", {})
@@ -1400,6 +1568,7 @@ def analyze_all():
                 name: {"white_bg": part_imgs[name]["white_bg"], "cropped": part_imgs[name]["cropped"]}
                 for name in part_imgs
             },
+            "skin":     skin_data,
         })
 
     except Exception as e:

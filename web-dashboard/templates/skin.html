@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skin Analysis</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --sidebar-bg: #ffffff;
+            --card-bg: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --text-highlight: #94a3b8;
+            --border-color: #f1f5f9;
+            --bar-bg: #e2e8f0;
+            --bar-fill: #94a3b8;
+            --marker-color: #1e293b;
+            --tooltip-bg: #64748b;
+        }
+
+        body { margin:0; font-family:'Inter',sans-serif; background:var(--bg-color); color:var(--text-primary); display:flex; height:100vh; overflow:hidden; }
+
+        /* ── Sidebar ── */
+        .sidebar { width:250px; background:var(--sidebar-bg); border-right:1px solid var(--border-color); padding:32px 0; overflow-y:auto; flex-shrink:0; }
+        .sidebar-menu { list-style:none; padding:0; margin:0; font-size:14px; color:var(--text-secondary); }
+        .sidebar-menu li { padding:12px 24px; cursor:pointer; display:flex; align-items:center; }
+        .sidebar-menu li:hover { color:var(--text-primary); }
+        .sidebar-menu li.has-children { font-weight:500; color:var(--text-primary); }
+        .sidebar-menu li.has-children::before { content:"v"; margin-right:12px; font-size:10px; font-family:monospace; }
+        .sidebar-menu li.collapsed::before { content:">"; }
+        .sidebar-submenu { list-style:none; padding:0; margin:0; }
+        .sidebar-submenu li { padding:10px 24px 10px 48px; margin:4px 12px; border-radius:8px; color:var(--text-secondary); }
+        .sidebar-submenu li:hover { background:#f8fafc; color:var(--text-primary); }
+        .sidebar-submenu li.active { background:#ffffff; color:var(--text-primary); box-shadow:0 1px 3px rgba(0,0,0,0.05); font-weight:500; }
+
+        /* ── Main ── */
+        .main-content { flex-grow:1; padding:40px; overflow-y:auto; }
+        .header h1 { font-size:32px; font-weight:600; margin:0 0 12px 0; letter-spacing:-0.5px; }
+        .header h1 span { color:var(--text-highlight); }
+        .header p { font-size:15px; color:var(--text-secondary); margin:0 0 32px 0; }
+        .header p strong { color:var(--text-primary); font-weight:600; }
+
+        #results { display:none; }
+
+        /* ── Top split: image + brief summary ── */
+        .top-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        /* Skin image card */
+        .skin-image-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 32px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+            min-height: 340px;
+        }
+        .skin-image-card img {
+            max-width: 100%;
+            max-height: 300px;
+            object-fit: contain;
+            border-radius: 12px;
+        }
+        .skin-img-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 10px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        /* Summary card */
+        .summary-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 28px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+        }
+        .summary-title {
+            font-size: 18px;
+            font-weight: 500;
+            margin: 0 0 20px 0;
+        }
+        .metric-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .class-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px 18px;
+            position: relative;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+            transition: all 0.2s;
+            cursor: default;
+        }
+        .class-card:hover { border-color: #cbd5e1; }
+        .class-label {
+            font-family: monospace;
+            font-size: 10px;
+            color: var(--text-highlight);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 32px;
+            font-weight: 600;
+            display: block;
+        }
+        .class-value {
+            font-size: 18px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+        /* Tooltip */
+        .class-card .tooltip {
+            position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%) translateY(-10px);
+            background: var(--tooltip-bg); color: white; padding: 14px; border-radius: 8px;
+            font-size: 12px; line-height: 1.4; width: 190px; opacity: 0; visibility: hidden;
+            transition: all 0.2s; z-index: 10; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+        }
+        .class-card .tooltip::after {
+            content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+            border-width: 6px; border-style: solid; border-color: var(--tooltip-bg) transparent transparent transparent;
+        }
+        .class-card .tooltip .tooltip-title {
+            font-family: monospace; font-size: 10px; text-transform: uppercase;
+            margin-bottom: 6px; font-weight: 600; color: #f8fafc;
+        }
+        .class-card:hover .tooltip { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(-5px); }
+
+        /* ── Metrics carousel ── */
+        .carousel-container {
+            position: relative; background: var(--card-bg); border: 1px solid var(--border-color);
+            border-radius: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.02); overflow: hidden; min-height: 280px;
+            margin-bottom: 24px;
+        }
+        .carousel-nav {
+            position: absolute; top: 24px; right: 24px; display: flex; gap: 8px; align-items: center;
+            color: #cbd5e1; font-size: 14px; z-index: 20; user-select: none;
+        }
+        .carousel-nav .arrow { cursor: pointer; padding: 0 4px; transition: color 0.2s; }
+        .carousel-nav .arrow:hover { color: var(--text-primary); }
+        .carousel-nav .dot { width: 6px; height: 6px; background: #e2e8f0; border-radius: 50%; cursor: pointer; }
+        .carousel-nav .dot.active { background: #94a3b8; }
+        .range-card {
+            padding: 28px; position: absolute; top: 0; left: 0; width: 100%; height: 100%; box-sizing: border-box;
+            transition: transform 0.4s ease, opacity 0.4s ease; opacity: 0; pointer-events: none; background: var(--card-bg);
+        }
+        .range-card.active { opacity: 1; pointer-events: auto; transform: translateX(0); }
+        .range-card.prev { transform: translateX(-100%); }
+        .range-card.next { transform: translateX(100%); }
+        .range-card h3 { margin: 0 0 6px 0; font-size: 20px; font-weight: 500; line-height: 1.3; max-width: 80%; }
+        .range-card h3 .highlight { color: var(--text-highlight); }
+        .range-card p.desc { font-size: 13px; color: var(--text-secondary); margin: 0 0 24px 0; line-height: 1.5; max-width: 75%; }
+        .range-box { background: #fafafa; border-radius: 8px; padding: 20px 24px; border: 1px solid #f1f5f9; }
+        .range-box-header {
+            display: flex; justify-content: space-between;
+            font-family: monospace; font-size: 10px; color: var(--text-highlight);
+            text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; font-weight: 600;
+        }
+        .range-value { font-size: 26px; font-weight: 600; margin-bottom: 36px; }
+        .range-value .unit { font-size: 13px; font-weight: 500; margin-left: 3px; color: var(--text-primary); }
+        .slider-container { position: relative; height: 40px; }
+        .slider-track { position: absolute; bottom: 20px; left: 0; right: 0; height: 4px; background: var(--bar-bg); border-radius: 2px; }
+        .slider-fill { position: absolute; bottom: 20px; height: 4px; background: var(--bar-fill); border-radius: 2px; }
+        .slider-marker {
+            position: absolute; bottom: 24px; width: 4px; height: 4px;
+            background: var(--marker-color); transform: translateX(-50%); transition: left 0.5s ease-out;
+        }
+        .slider-marker::after {
+            content: ''; position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
+            width: 1px; height: 12px; background: var(--bar-fill);
+        }
+        .slider-labels {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            display: flex; justify-content: space-between; font-size: 10px; font-weight: 500; color: var(--text-secondary);
+        }
+
+        /* ── Detail metrics table ── */
+        .detail-card {
+            background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px;
+            padding: 24px; box-shadow: 0 2px 10px rgba(0,0,0,0.02); margin-bottom: 24px;
+        }
+        .detail-title { font-size: 16px; font-weight: 500; margin: 0 0 16px 0; }
+        .metric-row {
+            display: flex; justify-content: space-between; align-items: center; padding: 9px 12px;
+            border-radius: 8px; background: #f8fafc; border: 1px solid var(--border-color);
+            font-size: 13px; margin-bottom: 6px;
+        }
+        .metric-row:last-child { margin-bottom: 0; }
+        .metric-row:hover { background: #f1f5f9; }
+        .metric-label { color: var(--text-secondary); font-weight: 500; }
+        .metric-val { color: var(--text-primary); font-weight: 600; }
+
+        /* ── Score chips ── */
+        .score-chip {
+            display: inline-block; padding: 2px 10px; border-radius: 20px;
+            font-size: 11px; font-weight: 600; margin-left: 8px; vertical-align: middle;
+        }
+        .chip-good    { background: #dcfce7; color: #15803d; }
+        .chip-mild    { background: #fef9c3; color: #854d0e; }
+        .chip-bad     { background: #fee2e2; color: #991b1b; }
+        .chip-neutral { background: #f1f5f9; color: #475569; }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <ul class="sidebar-menu">
+        <li class="collapsed">Introduction</li>
+        <li class="collapsed">Facial Assessments</li>
+        <li class="has-children">Features Analysis</li>
+        <ul class="sidebar-submenu">
+            <li onclick="window.location.href='/'">Dashboard</li>
+            <li onclick="window.location.href='/eyebrows'">Eyebrows</li>
+            <li onclick="window.location.href='/eyes'">Eyes</li>
+            <li onclick="window.location.href='/nose'">Nose</li>
+            <li onclick="window.location.href='/lips'">Lips</li>
+            <li onclick="window.location.href='/cheeks'">Cheeks</li>
+            <li onclick="window.location.href='/jaw'">Jaw</li>
+            <li onclick="window.location.href='/chin'">Chin</li>
+            <li onclick="window.location.href='/hair'">Hair</li>
+            <li onclick="window.location.href='/smile'">Smile</li>
+            <li onclick="window.location.href='/neck'">Neck</li>
+            <li onclick="window.location.href='/ear'">Ear</li>
+            <li class="active" onclick="window.location.href='/skin'">Skin</li>
+        </ul>
+        <li class="collapsed">Protocol</li>
+    </ul>
+</div>
+
+<div class="main-content">
+    <div class="header">
+        <h1>Summary of your <span>skin</span></h1>
+        <p>Skin tone, texture and uniformity are analysed using <strong>LAB color science</strong> and <strong>Laplacian frequency analysis</strong>.</p>
+    </div>
+
+    <div id="results">
+
+        <!-- ══ Top: Face Image + 4 Summary Cards ══ -->
+        <div class="top-section">
+
+            <!-- Left: Skin face image -->
+            <div class="skin-image-card">
+                <img id="skinImage" src="" alt="Skin Analysis">
+                <p class="skin-img-label">Face skin region</p>
+            </div>
+
+            <!-- Right: Summary of your skin (4 cards) -->
+            <div class="summary-card">
+                <div class="summary-title">Summary of your skin</div>
+                <div class="metric-grid">
+
+                    <div class="class-card" id="card-undertone">
+                        <div class="tooltip">
+                            <div class="tooltip-title">SKIN UNDERTONE</div>
+                            Derived from the LAB color space a* (red/green) and b* (yellow/blue) channels of your skin pixels.
+                        </div>
+                        <span class="class-label">SKIN UNDERTONE</span>
+                        <div class="class-value" id="valUndertone">--</div>
+                    </div>
+
+                    <div class="class-card" id="card-blemishing">
+                        <div class="tooltip">
+                            <div class="tooltip-title">SKIN BLEMISHING</div>
+                            Count of distinct redness hotspots found via connected component analysis of the a* channel.
+                        </div>
+                        <span class="class-label">SKIN BLEMISHING</span>
+                        <div class="class-value" id="valBlemishing">--</div>
+                    </div>
+
+                    <div class="class-card" id="card-evenness">
+                        <div class="tooltip">
+                            <div class="tooltip-title">SKIN EVENNESS</div>
+                            Uniformity of skin colour measured by the combined standard deviation of LAB channels.
+                        </div>
+                        <span class="class-label">SKIN EVENNESS</span>
+                        <div class="class-value" id="valEvenness">--</div>
+                    </div>
+
+                    <div class="class-card" id="card-texture">
+                        <div class="tooltip">
+                            <div class="tooltip-title">SKIN TEXTURE</div>
+                            Roughness estimated from the variance of a Laplacian edge-detection filter applied to skin pixels.
+                        </div>
+                        <span class="class-label">SKIN TEXTURE</span>
+                        <div class="class-value" id="valTexture">--</div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- ══ Scientific Metrics Carousel ══ -->
+        <div class="carousel-container">
+            <div class="carousel-nav">
+                <div class="arrow" onclick="prevSlide()">&lt;</div>
+                <div class="dot active" onclick="goToSlide(0)"></div>
+                <div class="dot"        onclick="goToSlide(1)"></div>
+                <div class="dot"        onclick="goToSlide(2)"></div>
+                <div class="dot"        onclick="goToSlide(3)"></div>
+                <div class="arrow" onclick="nextSlide()">&gt;</div>
+            </div>
+
+            <!-- Slide 0 — Roughness -->
+            <div class="range-card active" id="slide-0">
+                <h3 id="slide0-headline">Overall Skin Roughness</h3>
+                <p class="desc" id="slide0-desc">Laplacian variance mapped to a perceptual roughness scale. Lower values indicate a smoother surface texture.</p>
+                <div class="range-box">
+                    <div class="range-box-header">
+                        <div>OVERALL SKIN ROUGHNESS</div>
+                        <div id="slide0-demog">LAPLACIAN VARIANCE</div>
+                    </div>
+                    <div class="range-value"><span id="valRoughnessRin">--</span><span class="unit">RIN</span></div>
+                    <div class="slider-container">
+                        <div class="slider-track"></div>
+                        <div class="slider-fill" style="left:10%;right:10%;"></div>
+                        <div class="slider-marker" id="markerRoughness" style="left:50%;"></div>
+                        <div class="slider-labels" style="padding:0 8%;">
+                            <div>0.05 RIN</div><div>0.30 RIN</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 1 — Evenness / Homogeneity -->
+            <div class="range-card next" id="slide-1">
+                <h3>Skin <span class="highlight">Evenness</span></h3>
+                <p class="desc">Colour homogeneity of your skin measured from standard deviation across LAB channels. Lower = more even tone.</p>
+                <div class="range-box">
+                    <div class="range-box-header">
+                        <div>SKIN HOMOGENEITY</div><div>LAB STD DEV → RIN</div>
+                    </div>
+                    <div class="range-value"><span id="valHomogeneityRin">--</span><span class="unit">RIN</span></div>
+                    <div class="slider-container">
+                        <div class="slider-track"></div>
+                        <div class="slider-fill" style="left:10%;right:10%;"></div>
+                        <div class="slider-marker" id="markerHomogeneity" style="left:50%;"></div>
+                        <div class="slider-labels" style="padding:0 8%;">
+                            <div>0.10 RIN</div><div>0.45 RIN</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 2 — Oiliness -->
+            <div class="range-card next" id="slide-2">
+                <h3>Skin <span class="highlight">Oiliness</span></h3>
+                <p class="desc">Luminance skewness detects specular highlights from sebum. Positive skew → shiny/oily; negative → matte/dry.</p>
+                <div class="range-box">
+                    <div class="range-box-header">
+                        <div>LUMINANCE SKEWNESS</div><div>L* CHANNEL</div>
+                    </div>
+                    <div class="range-value"><span id="valOilinessSkew">--</span><span class="unit">skew</span></div>
+                    <div class="slider-container">
+                        <div class="slider-track"></div>
+                        <div class="slider-fill" style="left:10%;right:10%;"></div>
+                        <div class="slider-marker" id="markerOiliness" style="left:50%;"></div>
+                        <div class="slider-labels" style="padding:0 8%;">
+                            <div>−1.0</div><div>+1.0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 3 — Dark Circles -->
+            <div class="range-card next" id="slide-3">
+                <h3>Under-Eye <span class="highlight">Luminance</span></h3>
+                <p class="desc">Compares the brightness of the under-eye region against average face luminance. A lower ratio indicates dark circles.</p>
+                <div class="range-box">
+                    <div class="range-box-header">
+                        <div>UNDER-EYE vs FACE L*</div><div>LAB L CHANNEL</div>
+                    </div>
+                    <div class="range-value">
+                        <span id="valUnderEyeL">--</span><span class="unit"> / </span><span id="valFaceL">--</span>
+                    </div>
+                    <div class="slider-container">
+                        <div class="slider-track"></div>
+                        <div class="slider-fill" style="left:10%;right:10%;"></div>
+                        <div class="slider-marker" id="markerDarkCircles" style="left:50%;"></div>
+                        <div class="slider-labels" style="padding:0 8%;">
+                            <div>Darker</div><div>Brighter</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══ All Skin Metrics Detail ══ -->
+        <div class="detail-card">
+            <div class="detail-title">All Skin Metrics</div>
+            <div id="allMetricsContainer" style="display:grid;grid-template-columns:1fr 1fr;gap:6px 32px;"></div>
+        </div>
+
+    </div><!-- #results -->
+</div>
+
+<script>
+    // ── Carousel ──
+    let currentSlide = 0;
+    const totalSlides = 4;
+
+    function updateCarousel() {
+        for (let i = 0; i < totalSlides; i++) {
+            const s = document.getElementById(`slide-${i}`);
+            s.classList.remove('active','prev','next');
+            if (i === currentSlide)      s.classList.add('active');
+            else if (i < currentSlide)   s.classList.add('prev');
+            else                         s.classList.add('next');
+        }
+        document.querySelectorAll('.carousel-nav .dot').forEach((d, i) =>
+            d.classList.toggle('active', i === currentSlide));
+    }
+    function nextSlide() { currentSlide = (currentSlide + 1) % totalSlides; updateCarousel(); }
+    function prevSlide() { currentSlide = (currentSlide - 1 + totalSlides) % totalSlides; updateCarousel(); }
+    function goToSlide(i) { currentSlide = i; updateCarousel(); }
+
+    function setMark(id, val, min, max) {
+        const pct = 10 + ((val - min) / (max - min)) * 80;
+        document.getElementById(id).style.left = `${Math.max(5, Math.min(95, pct))}%`;
+    }
+
+    function setVal(id, v) {
+        const el = document.getElementById(id);
+        if (el) el.innerText = (v !== null && v !== undefined && v !== 'N/A') ? v : 'N/A';
+    }
+
+    function chipClass(label) {
+        const good = ['Clear','Even','Smooth','Neutral','Neutral-Warm','Neutral-Cool','Warm','Cool','Not Prominent','Normal / Combination','Matte / Dry'];
+        const bad  = ['Severe','Uneven','Textured / Rough','Oily / Shiny','Detected','Moderate'];
+        if (good.includes(label)) return 'chip-good';
+        if (bad.includes(label))  return 'chip-bad';
+        if (label === 'Mild' || label === 'Slightly Uneven' || label === 'Slightly Textured') return 'chip-mild';
+        return 'chip-neutral';
+    }
+
+    function buildHeadline(data) {
+        const rin = data.roughness_rin;
+        if (!rin || rin === 'N/A') return 'Overall Skin Roughness';
+        if (rin < 0.10) return 'Smooth skin — within optimal range';
+        if (rin < 0.14) return 'Within normal range but toward the rougher end for your demographic';
+        return 'Above-average roughness — visible texture present';
+    }
+
+    function buildDesc(data) {
+        const cls = data.texture;
+        const descs = {
+            'Smooth':          "Your skin surface shows minimal high-frequency texture. At close range it appears uniformly smooth with little visible grain.",
+            'Slightly Textured':"Your skin's roughness sits near the upper end of normal so at close range you show fine textural grain, especially on forehead and chin, while still appearing generally smooth overall.",
+            'Textured / Rough': "Elevated roughness scores indicate visible pores, lines or irregular surface texture that creates contrast under directional lighting.",
+        };
+        return descs[cls] || "Skin roughness analysis complete.";
+    }
+
+    // ── Main data loader ──
+    window.addEventListener('DOMContentLoaded', () => {
+        const dataStr = sessionStorage.getItem('faceData_skin');
+        if (!dataStr) {
+            const b = document.createElement('div');
+            b.innerHTML = '<div style="background:var(--text-highlight);color:white;padding:15px;text-align:center;border-radius:8px;margin-bottom:20px;font-weight:bold;">No Face Data Found! Please go to Dashboard and upload your image first.</div>';
+            document.querySelector('.header').after(b);
+            return;
+        }
+        const data = JSON.parse(dataStr);
+        if (data.error) { alert(data.error); return; }
+        document.getElementById('results').style.display = 'block';
+
+        // ── Skin image ──
+        const imgEl = document.getElementById('skinImage');
+        if (imgEl && data.skin_image) imgEl.src = data.skin_image;
+
+        // ── 4 Summary Cards ──
+        setVal('valUndertone',  data.undertone);
+        setVal('valBlemishing', data.blemishing);
+        setVal('valEvenness',   data.evenness);
+        setVal('valTexture',    data.texture);
+
+        // Colour-code card borders
+        [['valUndertone','card-undertone'],['valBlemishing','card-blemishing'],
+         ['valEvenness','card-evenness'],['valTexture','card-texture']].forEach(([vid, cid]) => {
+            const val = document.getElementById(vid)?.innerText || '';
+            const cc = chipClass(val);
+            const card = document.getElementById(cid);
+            if (card) {
+                if      (cc === 'chip-good') card.style.borderLeftColor = '#86efac';
+                else if (cc === 'chip-bad')  card.style.borderLeftColor = '#fca5a5';
+                else if (cc === 'chip-mild') card.style.borderLeftColor = '#fde047';
+                card.style.borderLeftWidth = '3px';
+            }
+        });
+
+        // ── Slide 0: Roughness ──
+        const rin = data.roughness_rin;
+        document.getElementById('slide0-headline').textContent = buildHeadline(data);
+        document.getElementById('slide0-desc').textContent = buildDesc(data);
+        setVal('valRoughnessRin', rin !== null ? rin.toFixed(2) : 'N/A');
+        if (rin !== null) setMark('markerRoughness', rin, 0.05, 0.30);
+
+        // ── Slide 1: Evenness ──
+        const homRin = data.homogeneity_rin;
+        setVal('valHomogeneityRin', homRin !== null ? homRin.toFixed(2) : 'N/A');
+        if (homRin !== null) setMark('markerHomogeneity', homRin, 0.10, 0.45);
+
+        // ── Slide 2: Oiliness ──
+        const oilSkew = data.oiliness_skew;
+        setVal('valOilinessSkew', oilSkew !== null ? oilSkew.toFixed(2) : 'N/A');
+        if (oilSkew !== null) setMark('markerOiliness', oilSkew, -1.0, 1.0);
+
+        // ── Slide 3: Dark circles ──
+        const underL = data.under_eye_l;
+        const faceL  = data.mean_luminance_l;
+        setVal('valUnderEyeL', underL !== null ? underL.toFixed(1) : 'N/A');
+        setVal('valFaceL',     faceL  !== null ? faceL.toFixed(1)  : 'N/A');
+        if (underL !== null && faceL !== null) {
+            const ratio = underL / faceL; // 0..1+
+            setMark('markerDarkCircles', ratio, 0.7, 1.1);
+        }
+
+        // ── All Metrics Detail ──
+        const container = document.getElementById('allMetricsContainer');
+        const rows = [
+            ['Skin Undertone',          data.undertone],
+            ['Skin Blemishing',         data.blemishing],
+            ['Skin Evenness',           data.evenness],
+            ['Skin Texture',            data.texture],
+            ['Skin Oiliness',           data.oiliness],
+            ['Dark Circles',            data.dark_circles],
+            ['Roughness (RIN)',         rin !== null ? rin.toFixed(2) + ' RIN' : 'N/A'],
+            ['Homogeneity (RIN)',        homRin !== null ? homRin.toFixed(2) + ' RIN' : 'N/A'],
+            ['Oiliness Skewness',       oilSkew !== null ? oilSkew.toFixed(2) : 'N/A'],
+            ['Blemish Count',           data.blemish_count !== null ? data.blemish_count : 'N/A'],
+            ['Mean Redness (a*)',        data.mean_redness_a !== null ? data.mean_redness_a : 'N/A'],
+            ['Face Luminance (L*)',      faceL !== null ? faceL.toFixed(1) : 'N/A'],
+            ['Under-Eye Luminance (L*)', underL !== null ? underL.toFixed(1) : 'N/A'],
+        ];
+        container.innerHTML = rows.map(([label, val]) => {
+            const chip = chipClass(String(val));
+            const isClassification = ['Skin Undertone','Skin Blemishing','Skin Evenness','Skin Texture','Skin Oiliness','Dark Circles'].includes(label);
+            const chipHtml = isClassification ? `<span class="score-chip ${chip}">${val}</span>` : '';
+            return `<div class="metric-row">
+                <span class="metric-label">${label}</span>
+                <span class="metric-val">${isClassification ? '' : val}${chipHtml}</span>
+            </div>`;
+        }).join('');
+    });
+</script>
+</body>
+</html>

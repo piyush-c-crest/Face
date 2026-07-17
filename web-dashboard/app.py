@@ -19,10 +19,15 @@ from flask import Flask, render_template, request, jsonify
 import torch
 from transformers import SegformerImageProcessor, SegformerForSemanticSegmentation
 import mediapipe as mp
-
-# ─────────────────────────────────────────────
+from inference_sdk import InferenceHTTPClient
+import math
+from PIL import ImageDraw
+import tempfile
+from scipy.interpolate import splprep, splev
 # App setup
 # ─────────────────────────────────────────────
+from dotenv import load_dotenv
+load_dotenv()
 app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "face-parsing")
@@ -58,11 +63,12 @@ LABEL_MAP = {
 _segformer_processor = None
 _segformer_model = None
 _face_mesh = None
+_roboflow_client = None
 _device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 def load_models():
-    global _segformer_processor, _segformer_model, _face_mesh
+    global _segformer_processor, _segformer_model, _face_mesh, _roboflow_client
     if _segformer_processor is None:
         print(f"[INFO] Loading SegFormer from {MODEL_PATH} on {_device}...")
         _segformer_processor = SegformerImageProcessor.from_pretrained(MODEL_PATH)
@@ -79,6 +85,12 @@ def load_models():
             min_detection_confidence=0.5,
         )
         print("[INFO] MediaPipe loaded.")
+    if _roboflow_client is None:
+        _roboflow_client = InferenceHTTPClient(
+            api_url="https://serverless.roboflow.com",
+            api_key=os.environ.get("ROBOFLOW_API_KEY", "")
+        )
+        print("[INFO] Roboflow client initialized.")
 
 
 # ─────────────────────────────────────────────
@@ -151,6 +163,41 @@ def part_images_b64(img_rgb: np.ndarray, labels: np.ndarray, label_idx):
     white_bg_b64  = rgb_to_b64(white_bg) if white_bg is not None else None
     raw_crop_b64  = rgb_to_b64(raw_crop) if raw_crop is not None else None
     return white_bg_b64, raw_crop_b64
+
+
+def extract_chin_mediapipe(img_rgb: np.ndarray, pts: np.ndarray):
+    """
+    Extracts the chin region using MediaPipe landmarks and smooth B-spline interpolation.
+    Returns (white_crop, raw_crop) similar to part_images_b64 output.
+    """
+    if pts is None or len(pts) == 0:
+        return None, None
+        
+    CHIN_INDICES = [
+        204, 83, 18, 313, 424, 431,
+        395, 369, 396, 175, 171,
+        140, 170, 211
+    ]
+    
+    # Create smooth polygon using B-spline interpolation
+    pts_arr = np.array([pts[idx] for idx in CHIN_INDICES])
+    pts_arr = np.vstack((pts_arr, pts_arr[0])) # Close polygon
+    
+    tck, u = splprep([pts_arr[:, 0], pts_arr[:, 1]], s=0, per=True)
+    unew = np.linspace(0, 1, 100)
+    out = splev(unew, tck)
+    chin_poly = np.int32(np.vstack((out[0], out[1])).T)
+    
+    # Apply chin overlay
+    overlay = img_rgb.copy()
+    CHIN_COLOR = (170, 185, 185)  # RGB pastel color
+    cv2.fillPoly(overlay, [chin_poly], CHIN_COLOR)
+    
+    # Blend overlay with original image
+    alpha = 0.65
+    final_image = cv2.addWeighted(overlay, alpha, img_rgb, 1 - alpha, 0)
+    
+    return final_image, final_image
 
 
 # ─────────────────────────────────────────────
@@ -786,6 +833,120 @@ def neck():
     return render_template("neck.html")
 
 
+@app.route("/ear")
+def ear():
+    return render_template("ear.html")
+
+
+def extract_ear_roboflow(pil_img: Image.Image, mm_per_px: float = None):
+    """
+    Uses Roboflow API to segment the ear from a side-face image.
+    Returns:
+      - cropped_b64: cropped ear on white background
+      - overlay_b64: full image with ear outline + caliper measurement lines
+      - metrics: dict with ear_height_mm, ear_width_mm, ear_height_px, ear_width_px
+    """
+    import os
+    try:
+        # Save image to temp file
+        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+            tmp_path = tmp.name
+            pil_img.save(tmp_path)
+
+        result = _roboflow_client.run_workflow(
+            workspace_name="fabiki4429-acoxs-com",
+            workflow_id="general-segmentation-api-2",
+            images={"image": tmp_path},
+            parameters={"classes": "ear"},
+            use_cache=True
+        )
+        os.unlink(tmp_path)
+
+        preds = result[0].get('predictions', {})
+        if isinstance(preds, dict):
+            predictions_list = preds.get('predictions', [])
+        else:
+            predictions_list = []
+
+        if not predictions_list:
+            return None, None, {}
+
+        prediction = predictions_list[0]
+        points = np.array([[p['x'], p['y']] for p in prediction['points']], dtype=np.int32)
+
+        img_rgb = np.array(pil_img.convert('RGB'))
+
+        # --- Cropped ear on white background ---
+        mask = np.zeros(img_rgb.shape[:2], dtype=np.uint8)
+        cv2.fillPoly(mask, [points], 255)
+        ear_masked = img_rgb.copy()
+        ear_masked[mask == 0] = 255  # white background
+
+        xs, ys = points[:, 0], points[:, 1]
+        min_x, max_x = xs.min(), xs.max()
+        min_y, max_y = ys.min(), ys.max()
+        pad = 10
+        x1 = max(0, int(min_x) - pad)
+        y1 = max(0, int(min_y) - pad)
+        x2 = min(img_rgb.shape[1], int(max_x) + pad)
+        y2 = min(img_rgb.shape[0], int(max_y) + pad)
+        ear_crop = ear_masked[y1:y2, x1:x2]
+        cropped_b64 = rgb_to_b64(ear_crop)
+
+        # --- Full image with caliper lines ---
+        def _draw_capped_line(draw, p1, p2, color, width, cap_len):
+            draw.line([p1, p2], fill=color, width=width)
+            dx, dy = p2[0] - p1[0], p2[1] - p1[1]
+            length = math.hypot(dx, dy)
+            if length == 0: return
+            ux, uy = dx / length, dy / length
+            px, py = -uy, ux
+            half = cap_len / 2
+            for (cx, cy) in (p1, p2):
+                a = (cx - px * half, cy - py * half)
+                b = (cx + px * half, cy + py * half)
+                draw.line([a, b], fill=color, width=width)
+
+        overlay_img = pil_img.convert('RGB').copy()
+        draw = ImageDraw.Draw(overlay_img)
+        pts_list = [tuple(p) for p in points.tolist()]
+        draw.line(pts_list + [pts_list[0]], fill=(0, 200, 80), width=3, joint='curve')
+
+        pts_plain = points.tolist()
+        vx = int(min_x) - 18
+        _draw_capped_line(draw, (vx, int(min_y)), (vx, int(max_y)), (237, 234, 222), 2, 14)
+
+        hy = int(min_y + (max_y - min_y) * 0.20)
+        band = [p for p in pts_plain if abs(p[1] - hy) < (max_y - min_y) * 0.05]
+        if band:
+            hx_left = min(p[0] for p in band)
+            hx_right = max(p[0] for p in band)
+        else:
+            hx_left, hx_right = int(min_x), int(max_x)
+        _draw_capped_line(draw, (int(hx_left), hy), (int(hx_right), hy), (237, 234, 222), 2, 14)
+
+        top_pt = min(pts_plain, key=lambda p: p[1])
+        bottom_pt = max(pts_plain, key=lambda p: p[1])
+        _draw_capped_line(draw, (int(top_pt[0]), int(top_pt[1])), (int(bottom_pt[0]), int(bottom_pt[1])), (237, 234, 222), 2, 14)
+
+        overlay_arr = np.array(overlay_img)
+        overlay_b64 = rgb_to_b64(overlay_arr)
+
+        ear_h_px = int(max_y - min_y)
+        ear_w_px = int(hx_right - hx_left)
+        metrics = {
+            'ear_height_px': ear_h_px,
+            'ear_width_px': ear_w_px,
+            'ear_height_mm': round(ear_h_px * mm_per_px, 2) if mm_per_px else None,
+            'ear_width_mm': round(ear_w_px * mm_per_px, 2) if mm_per_px else None,
+        }
+        return cropped_b64, overlay_b64, metrics
+
+    except Exception as e:
+        print(f'[WARN] Roboflow ear extraction failed: {e}')
+        return None, None, {}
+
+
 @app.route("/analyze_all", methods=["POST"])
 def analyze_all():
     """
@@ -824,6 +985,13 @@ def analyze_all():
 
         part_imgs = {name: get_images(idx) for idx, name in LABEL_MAP.items()}
         part_imgs["combined_lips"] = get_images([11, 12])  # u_lip and l_lip combined
+        
+        # Chin via Mediapipe
+        wb_chin, cr_chin = extract_chin_mediapipe(img_rgb, pts)
+        part_imgs["chin_mediapipe"] = {
+            "white_bg": rgb_to_b64(wb_chin) if wb_chin is not None else None,
+            "cropped":  rgb_to_b64(cr_chin) if cr_chin is not None else None
+        }
 
         # ── Build per-feature response dicts ──
         em = metrics.get("eyebrow", {})
@@ -954,9 +1122,9 @@ def analyze_all():
             "projection":    classify_chin_projection(chm.get("chin_midline_deviation_mm")),
             "shape":         classify_chin_shape(chm.get("chin_width_mm"), chm.get("chin_vertical_height_mm")),
             "depth":         classify_chin_depth(chm.get("chin_vertical_height_mm")),
-            # images (mouth area proxy)
-            "chin_image_white": part_imgs["skin"]["white_bg"],
-            "chin_image":       part_imgs["skin"]["cropped"],
+            # images (extracted via mediapipe)
+            "chin_image_white": part_imgs["chin_mediapipe"]["white_bg"],
+            "chin_image":       part_imgs["chin_mediapipe"]["cropped"],
         }
 
         hm = metrics.get("hair", {})
@@ -1028,6 +1196,76 @@ def analyze_all():
     except Exception as e:
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/analyze_ear", methods=["POST"])
+def analyze_ear():
+    """
+    Separate endpoint for ear analysis using a side-face image via Roboflow.
+    """
+    if "side" not in request.files:
+        return jsonify({"error": "No side image uploaded"}), 400
+
+    file = request.files["side"]
+    try:
+        pil_img = Image.open(file.stream).convert("RGB")
+    except Exception as e:
+        return jsonify({"error": f"Cannot open image: {e}"}), 400
+
+    try:
+        # Try to get mm_per_px from query param if passed
+        mm_per_px_str = request.form.get('mm_per_px', None)
+        mm_per_px = float(mm_per_px_str) if mm_per_px_str else None
+
+        cropped_b64, overlay_b64, metrics = extract_ear_roboflow(pil_img, mm_per_px)
+
+        if cropped_b64 is None:
+            return jsonify({"error": "No ear detected in the image. Please upload a clear side-profile photo."}), 400
+
+        ear_h_px = metrics.get('ear_height_px', 0)
+        ear_w_px = metrics.get('ear_width_px', 0)
+        ear_h_mm = metrics.get('ear_height_mm')
+        ear_w_mm = metrics.get('ear_width_mm')
+
+        def classify_ear_size(h_mm):
+            if h_mm is None: return 'N/A'
+            if h_mm < 55: return 'Small'
+            if h_mm < 68: return 'Average'
+            return 'Large'
+
+        def classify_ear_prominence(w_mm):
+            if w_mm is None: return 'N/A'
+            if w_mm < 18: return 'Close-Set'
+            if w_mm < 30: return 'Average'
+            return 'Prominent'
+
+        def classify_ear_shape(h_px, w_px):
+            if h_px == 0: return 'N/A'
+            ratio = w_px / h_px if h_px else 0
+            if ratio < 0.45: return 'Narrow / Oval'
+            if ratio < 0.65: return 'Rounded'
+            return 'Wide'
+
+        def classify_ear_position():
+            return 'Mid-Set'  # cannot compute from single image without front-face reference
+
+        ear_data = {
+            'ear_height_mm': _fmt(ear_h_mm) if ear_h_mm else 'N/A',
+            'ear_width_mm':  _fmt(ear_w_mm) if ear_w_mm else 'N/A',
+            'ear_height_px': ear_h_px,
+            'ear_width_px':  ear_w_px,
+            'ear_size':        classify_ear_size(ear_h_mm),
+            'ear_prominence':  classify_ear_prominence(ear_w_mm),
+            'ear_shape':       classify_ear_shape(ear_h_px, ear_w_px),
+            'ear_position':    classify_ear_position(),
+            'ear_cropped':     cropped_b64,
+            'ear_overlay':     overlay_b64,
+        }
+        return jsonify({'ear': ear_data})
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 
 # ─────────────────────────────────────────────

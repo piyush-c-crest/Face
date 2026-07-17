@@ -1,3 +1,5 @@
 .ipynb-checkpoints
 **/venv/
 **/face-parsing
+**__pycache__/
+.env

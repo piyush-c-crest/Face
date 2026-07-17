@@ -436,7 +436,7 @@
             <li onclick="window.location.href='/hair'">Hair</li>
             <li onclick="window.location.href='/smile'">Smile</li>
             <li onclick="window.location.href='/neck'">Neck</li>
-            <li>Ear</li>
+            <li onclick="window.location.href='/ear'">Ear</li>
             <li>Skin</li>
         </ul>
         <li class="collapsed">Protocol</li>
@@ -451,15 +451,26 @@
     </div>
 
     <input type="file" id="globalFileInput" accept="image/*" style="display: none;">
+    <input type="file" id="sideFileInput" accept="image/*" style="display: none;">
 
-    <div class="image-card" style="flex-direction: column; cursor: pointer;" onclick="document.getElementById('globalFileInput').click()">
-        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-highlight); margin-bottom: 16px;">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="17 8 12 3 7 8"></polyline>
-            <line x1="12" y1="3" x2="12" y2="15"></line>
-        </svg>
-        <h2 style="margin:0; font-size: 20px;">Click here to upload your face image</h2>
-        <p style="color: var(--text-secondary); margin-top: 8px;">Supports JPG, PNG (Max 5MB)</p>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+        <!-- Front Face Upload -->
+        <div class="image-card" id="frontUploadCard" style="flex-direction: column; cursor: pointer; min-height: 200px;" onclick="document.getElementById('globalFileInput').click()">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-highlight); margin-bottom: 12px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            <h2 style="margin:0; font-size: 17px;">Front Face Image</h2>
+            <p id="frontUploadLabel" style="color: var(--text-secondary); margin-top: 6px; font-size: 13px;">Click to upload (JPG, PNG)</p>
+        </div>
+
+        <!-- Side Face Upload -->
+        <div class="image-card" id="sideUploadCard" style="flex-direction: column; cursor: pointer; min-height: 200px;" onclick="document.getElementById('sideFileInput').click()">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-highlight); margin-bottom: 12px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            <h2 style="margin:0; font-size: 17px;">Side Face Image <span style="font-size:12px; color:var(--text-secondary); font-weight:400;">(for Ear analysis)</span></h2>
+            <p id="sideUploadLabel" style="color: var(--text-secondary); margin-top: 6px; font-size: 13px;">Click to upload (JPG, PNG)</p>
+        </div>
+    </div>
+
+    <div style="text-align: center; margin-bottom: 24px;">
+        <button id="analyzeBtn" class="upload-btn" style="padding: 12px 40px; font-size: 15px; opacity: 0.4; cursor: not-allowed;" disabled>Analyze Face</button>
     </div>
     
     <div id="dashboard-loading" style="display: none; text-align: center; margin-top: 40px;">
@@ -478,48 +489,104 @@
 </div>
 
 <script>
-    // Global Upload Logic
+    let frontFile = null;
+    let sideFile = null;
+
     const gInput = document.getElementById('globalFileInput');
-    if(gInput) {
-        gInput.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+    const sInput = document.getElementById('sideFileInput');
+    const analyzeBtn = document.getElementById('analyzeBtn');
 
-            const formData = new FormData();
-            formData.append('front', file);
-
-            document.getElementById('dashboard-loading').style.display = 'block';
-
-            try {
-                const result = await fetch('/analyze_all', { method: 'POST', body: formData }).then(r => r.json());
-                
-                if (result.error) {
-                    throw new Error(result.error);
-                }
-
-                // Store all categories in sessionStorage
-                sessionStorage.setItem('faceData_eyes',   JSON.stringify(result.eyes   || {}));
-                sessionStorage.setItem('faceData_brows',  JSON.stringify(result.eyebrows || {}));
-                sessionStorage.setItem('faceData_lips',   JSON.stringify(result.lips   || {}));
-                sessionStorage.setItem('faceData_nose',   JSON.stringify(result.nose   || {}));
-                sessionStorage.setItem('faceData_cheeks', JSON.stringify(result.cheeks || {}));
-                sessionStorage.setItem('faceData_jaw',    JSON.stringify(result.jaw    || {}));
-                sessionStorage.setItem('faceData_chin',   JSON.stringify(result.chin   || {}));
-                sessionStorage.setItem('faceData_hair',   JSON.stringify(result.hair   || {}));
-                sessionStorage.setItem('faceData_smile',  JSON.stringify(result.smile  || {}));
-                sessionStorage.setItem('faceData_neck',   JSON.stringify(result.neck   || {}));
-                sessionStorage.setItem('faceData_meta',   JSON.stringify(result.meta   || {}));
-
-                // Auto redirect to Eyes
-                window.location.href = '/eyes';
-
-            } catch (err) {
-                alert('Error analyzing face: ' + err.message || err);
-            } finally {
-                document.getElementById('dashboard-loading').style.display = 'none';
-            }
-        });
+    function updateAnalyzeBtn() {
+        if (frontFile) {
+            analyzeBtn.disabled = false;
+            analyzeBtn.style.opacity = '1';
+            analyzeBtn.style.cursor = 'pointer';
+        } else {
+            analyzeBtn.disabled = true;
+            analyzeBtn.style.opacity = '0.4';
+            analyzeBtn.style.cursor = 'not-allowed';
+        }
     }
+
+    gInput.addEventListener('change', (e) => {
+        frontFile = e.target.files[0];
+        if (frontFile) {
+            document.getElementById('frontUploadLabel').textContent = '✓ ' + frontFile.name;
+            document.getElementById('frontUploadLabel').style.color = '#22c55e';
+        }
+        updateAnalyzeBtn();
+    });
+
+    sInput.addEventListener('change', (e) => {
+        sideFile = e.target.files[0];
+        if (sideFile) {
+            document.getElementById('sideUploadLabel').textContent = '✓ ' + sideFile.name;
+            document.getElementById('sideUploadLabel').style.color = '#22c55e';
+            // Store side file for ear analysis later
+            const reader = new FileReader();
+            reader.onload = (ev) => sessionStorage.setItem('sideImageDataUrl', ev.target.result);
+            reader.readAsDataURL(sideFile);
+            sessionStorage.setItem('sideImageUploaded', 'true');
+        }
+        updateAnalyzeBtn();
+    });
+
+    analyzeBtn.addEventListener('click', async () => {
+        if (!frontFile) return;
+
+        const formData = new FormData();
+        formData.append('front', frontFile);
+
+        document.getElementById('dashboard-loading').style.display = 'block';
+        analyzeBtn.disabled = true;
+
+        try {
+            const result = await fetch('/analyze_all', { method: 'POST', body: formData }).then(r => r.json());
+
+            if (result.error) throw new Error(result.error);
+
+            sessionStorage.setItem('faceData_eyes',   JSON.stringify(result.eyes   || {}));
+            sessionStorage.setItem('faceData_brows',  JSON.stringify(result.eyebrows || {}));
+            sessionStorage.setItem('faceData_lips',   JSON.stringify(result.lips   || {}));
+            sessionStorage.setItem('faceData_nose',   JSON.stringify(result.nose   || {}));
+            sessionStorage.setItem('faceData_cheeks', JSON.stringify(result.cheeks || {}));
+            sessionStorage.setItem('faceData_jaw',    JSON.stringify(result.jaw    || {}));
+            sessionStorage.setItem('faceData_chin',   JSON.stringify(result.chin   || {}));
+            sessionStorage.setItem('faceData_hair',   JSON.stringify(result.hair   || {}));
+            sessionStorage.setItem('faceData_smile',  JSON.stringify(result.smile  || {}));
+            sessionStorage.setItem('faceData_neck',   JSON.stringify(result.neck   || {}));
+            sessionStorage.setItem('faceData_meta',   JSON.stringify(result.meta   || {}));
+
+            // Also analyze ear if side image was provided
+            if (sideFile) {
+                try {
+                    const meta = result.meta || {};
+                    const earForm = new FormData();
+                    earForm.append('side', sideFile);
+                    if (meta.mm_per_px) earForm.append('mm_per_px', meta.mm_per_px);
+
+                    const earResult = await fetch('/analyze_ear', { method: 'POST', body: earForm }).then(r => r.json());
+                    if (!earResult.error) {
+                        sessionStorage.setItem('faceData_ear', JSON.stringify(earResult.ear || {}));
+                    } else {
+                        sessionStorage.setItem('faceData_ear', JSON.stringify({ error: earResult.error }));
+                    }
+                } catch (earErr) {
+                    sessionStorage.setItem('faceData_ear', JSON.stringify({ error: 'Ear analysis failed' }));
+                }
+            } else {
+                sessionStorage.removeItem('faceData_ear');
+            }
+
+            window.location.href = '/eyes';
+
+        } catch (err) {
+            alert('Error analyzing face: ' + (err.message || err));
+        } finally {
+            document.getElementById('dashboard-loading').style.display = 'none';
+            analyzeBtn.disabled = false;
+        }
+    });
 </script>
 
 </body>

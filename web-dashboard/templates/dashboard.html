@@ -452,20 +452,28 @@
 
     <input type="file" id="globalFileInput" accept="image/*" style="display: none;">
     <input type="file" id="sideFileInput" accept="image/*" style="display: none;">
+    <input type="file" id="jawFileInput" accept="image/*" style="display: none;">
 
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; margin-bottom: 24px;">
         <!-- Front Face Upload -->
         <div class="image-card" id="frontUploadCard" style="flex-direction: column; cursor: pointer; min-height: 200px;" onclick="document.getElementById('globalFileInput').click()">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-highlight); margin-bottom: 12px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-            <h2 style="margin:0; font-size: 17px;">Front Face Image</h2>
-            <p id="frontUploadLabel" style="color: var(--text-secondary); margin-top: 6px; font-size: 13px;">Click to upload (JPG, PNG)</p>
+            <h2 style="margin:0; font-size: 17px; text-align: center;">Front Face Image</h2>
+            <p id="frontUploadLabel" style="color: var(--text-secondary); margin-top: 6px; font-size: 13px; text-align: center;">Click to upload (JPG, PNG)</p>
         </div>
 
         <!-- Side Face Upload -->
         <div class="image-card" id="sideUploadCard" style="flex-direction: column; cursor: pointer; min-height: 200px;" onclick="document.getElementById('sideFileInput').click()">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-highlight); margin-bottom: 12px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-            <h2 style="margin:0; font-size: 17px;">Side Face Image <span style="font-size:12px; color:var(--text-secondary); font-weight:400;">(for Ear analysis)</span></h2>
-            <p id="sideUploadLabel" style="color: var(--text-secondary); margin-top: 6px; font-size: 13px;">Click to upload (JPG, PNG)</p>
+            <h2 style="margin:0; font-size: 17px; text-align: center;">Side Face Image <br><span style="font-size:12px; color:var(--text-secondary); font-weight:400;">(for Ear analysis)</span></h2>
+            <p id="sideUploadLabel" style="color: var(--text-secondary); margin-top: 6px; font-size: 13px; text-align: center;">Click to upload (JPG, PNG)</p>
+        </div>
+
+        <!-- 45-Degree Jaw Upload -->
+        <div class="image-card" id="jawUploadCard" style="flex-direction: column; cursor: pointer; min-height: 200px;" onclick="document.getElementById('jawFileInput').click()">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-highlight); margin-bottom: 12px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            <h2 style="margin:0; font-size: 17px; text-align: center;">45-Degree Image <br><span style="font-size:12px; color:var(--text-secondary); font-weight:400;">(for Jaw analysis)</span></h2>
+            <p id="jawUploadLabel" style="color: var(--text-secondary); margin-top: 6px; font-size: 13px; text-align: center;">Click to upload (JPG, PNG)</p>
         </div>
     </div>
 
@@ -491,9 +499,11 @@
 <script>
     let frontFile = null;
     let sideFile = null;
+    let jawFile = null;
 
     const gInput = document.getElementById('globalFileInput');
     const sInput = document.getElementById('sideFileInput');
+    const jInput = document.getElementById('jawFileInput');
     const analyzeBtn = document.getElementById('analyzeBtn');
 
     function updateAnalyzeBtn() {
@@ -527,6 +537,20 @@
             reader.onload = (ev) => sessionStorage.setItem('sideImageDataUrl', ev.target.result);
             reader.readAsDataURL(sideFile);
             sessionStorage.setItem('sideImageUploaded', 'true');
+        }
+        updateAnalyzeBtn();
+    });
+
+    jInput.addEventListener('change', (e) => {
+        jawFile = e.target.files[0];
+        if (jawFile) {
+            document.getElementById('jawUploadLabel').textContent = '✓ ' + jawFile.name;
+            document.getElementById('jawUploadLabel').style.color = '#22c55e';
+            // Store jaw file for jaw analysis later
+            const reader = new FileReader();
+            reader.onload = (ev) => sessionStorage.setItem('jawImageDataUrl', ev.target.result);
+            reader.readAsDataURL(jawFile);
+            sessionStorage.setItem('jawImageUploaded', 'true');
         }
         updateAnalyzeBtn();
     });

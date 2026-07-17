@@ -116,9 +116,9 @@
                 <p style="margin-top:6px;font-size:12px;color:var(--text-secondary);">Jaw Region</p>
             </div>
             <div style="text-align:center;">
-                <p style="font-size:11px;color:var(--text-highlight);margin-bottom:6px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Extracted (White BG)</p>
+                <p style="font-size:11px;color:var(--text-highlight);margin-bottom:6px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Extracted (Masked)</p>
                 <img id="jawImageWB" src="" alt="Jaw White BG">
-                <p style="margin-top:6px;font-size:12px;color:var(--text-secondary);">Jaw — Extracted</p>
+                <p id="jawImageWBLabel" style="margin-top:6px;font-size:12px;color:var(--text-secondary);">Jaw — Extracted</p>
             </div>
         </div>
 
@@ -272,8 +272,41 @@
         setMark('markerAngle', ang,  30, 80);
 
         const img=document.getElementById('jawImage'), imgWB=document.getElementById('jawImageWB');
-        if(img && data.jaw_image)    img.src=data.jaw_image;
-        if(imgWB && data.jaw_image_white) imgWB.src=data.jaw_image_white;
+        
+        const jawDataUrl = sessionStorage.getItem('jawImageDataUrl');
+        if (jawDataUrl) {
+            // Show a basic loading indicator while fetching
+            if(img) img.style.opacity = '0.5';
+            if(imgWB) imgWB.style.opacity = '0.5';
+            
+            fetch(jawDataUrl)
+                .then(res => res.blob())
+                .then(blob => {
+                    const fd = new FormData();
+                    fd.append('jaw', blob, 'jaw.png');
+                    return fetch('/analyze_jaw', { method: 'POST', body: fd });
+                })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.jaw) {
+                        if(img) { img.src = res.jaw.jaw_cropped; img.style.opacity = '1'; }
+                        if(imgWB) { imgWB.src = res.jaw.jaw_overlay; imgWB.style.opacity = '1'; }
+                        document.getElementById('jawImageWBLabel').innerText = "45-Degree Full Highlight";
+                    } else if (res.error) {
+                        console.error(res.error);
+                        alert("Error analyzing jaw: " + res.error);
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    if(img) { img.src = data.jaw_image; img.style.opacity = '1'; }
+                    if(imgWB) { imgWB.src = data.jaw_image_white; imgWB.style.opacity = '1'; }
+                });
+        } else {
+            // Fallback to front face jaw data
+            if(img && data.jaw_image)    img.src=data.jaw_image;
+            if(imgWB && data.jaw_image_white) imgWB.src=data.jaw_image_white;
+        }
 
         const det=document.getElementById('jawMetricsDetail');
         if(det){

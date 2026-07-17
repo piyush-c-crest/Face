@@ -235,6 +235,106 @@ def extract_cheeks_mediapipe(img_rgb: np.ndarray, pts: np.ndarray):
     return final_image, final_image
 
 
+def extract_jaw_mediapipe(pil_img: Image.Image):
+    """
+    Extracts the jaw area from a 45-degree side profile image using MediaPipe face landmarks.
+    Draws 478 landmarks and applies a dynamic polygon mask over the jaw.
+    Returns: cropped_b64, overlay_b64
+    """
+    img_rgb = np.array(pil_img.convert('RGB'))
+    h, w, _ = img_rgb.shape
+    
+    # Process the image to get landmarks with z-coordinates
+    results = _face_mesh.process(img_rgb)
+    if not results.multi_face_landmarks:
+        return None, None
+        
+    face_landmarks = results.multi_face_landmarks[0].landmark
+    
+    # Draw all 478 landmarks (beige color)
+    annotated_image = img_rgb.copy()
+    for landmark in face_landmarks:
+        x = int(landmark.x * w)
+        y = int(landmark.y * h)
+        cv2.circle(annotated_image, (x, y), 1, (237, 234, 222), -1)
+        
+    # Determine face orientation using 3D Z-coordinates
+    left_ear_z = face_landmarks[454].z
+    right_ear_z = face_landmarks[234].z
+    facing_left = right_ear_z < left_ear_z  # Right ear is closer to camera
+    
+    if facing_left:
+        jawline_indices = [234, 93, 132, 58, 172, 136, 150, 149, 176, 148, 152]
+        ear_idx = 234
+    else:
+        jawline_indices = [454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152]
+        ear_idx = 454
+        
+    nose_tip = face_landmarks[1]
+    ear = face_landmarks[ear_idx]
+    
+    nose_x, nose_y = int(nose_tip.x * w), int(nose_tip.y * h)
+    ear_x, ear_y = int(ear.x * w), int(ear.y * h)
+    
+    # Calculate the front boundary (65% distance)
+    if facing_left:
+        front_x = int(ear_x + 0.65 * (nose_x - ear_x))
+    else:
+        front_x = int(ear_x - 0.65 * (ear_x - nose_x))
+        
+    polygon_pts = []
+    # 1. Start at top-back corner
+    polygon_pts.append([ear_x, nose_y])
+    # 2. Add top-front corner
+    polygon_pts.append([front_x, nose_y])
+    
+    # 3. Trace the jawline backwards
+    jawline_pts = []
+    for idx in jawline_indices:
+        pt_x = int(face_landmarks[idx].x * w)
+        pt_y = int(face_landmarks[idx].y * h)
+        # Push down for beard clearance (3% of height)
+        pt_y += int(h * 0.03)
+        # Only include points behind the front cutoff line
+        if (facing_left and pt_x <= front_x) or (not facing_left and pt_x >= front_x):
+            jawline_pts.append([pt_x, pt_y])
+            
+    jawline_pts = jawline_pts[::-1]
+    polygon_pts.extend(jawline_pts)
+    
+    # 4. Close the polygon at the ear
+    polygon_pts.append([ear_x, ear_y])
+    
+    polygon_pts = np.array(polygon_pts, np.int32)
+    
+    # Create mask and apply overlay
+    poly_mask = np.zeros((h, w), dtype=np.uint8)
+    cv2.fillPoly(poly_mask, [polygon_pts], 1)
+    
+    overlay = annotated_image.copy()
+    overlay[poly_mask == 1] = [170, 170, 170]
+    
+    alpha = 0.55
+    final_image = cv2.addWeighted(overlay, alpha, annotated_image, 1 - alpha, 0)
+    
+    # For jaw, since it's a side profile, let's just extract a tight bounding box around the polygon
+    xs = polygon_pts[:, 0]
+    ys = polygon_pts[:, 1]
+    pad = 20
+    x1 = max(0, xs.min() - pad)
+    y1 = max(0, ys.min() - pad)
+    x2 = min(w, xs.max() + pad)
+    y2 = min(h, ys.max() + pad)
+    
+    jaw_crop_rgb = final_image[y1:y2, x1:x2]
+    
+    # We'll return final_image as white_bg_b64 equivalent, and jaw_crop_rgb as raw_crop_b64 equivalent
+    overlay_b64 = rgb_to_b64(final_image)
+    cropped_b64 = rgb_to_b64(jaw_crop_rgb)
+    
+    return overlay_b64, cropped_b64
+
+
 # ─────────────────────────────────────────────
 # Segmentation
 # ─────────────────────────────────────────────
@@ -1304,6 +1404,37 @@ def analyze_ear():
             'ear_overlay':     overlay_b64,
         }
         return jsonify({'ear': ear_data})
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route("/analyze_jaw", methods=["POST"])
+def analyze_jaw():
+    """
+    Separate endpoint for jaw analysis using a 45-degree side-face image via MediaPipe.
+    """
+    if "jaw" not in request.files:
+        return jsonify({"error": "No jaw image uploaded"}), 400
+
+    file = request.files["jaw"]
+    try:
+        pil_img = Image.open(file.stream).convert("RGB")
+    except Exception as e:
+        return jsonify({"error": f"Cannot open image: {e}"}), 400
+
+    try:
+        overlay_b64, cropped_b64 = extract_jaw_mediapipe(pil_img)
+
+        if overlay_b64 is None:
+            return jsonify({"error": "No face detected by MediaPipe. Please ensure it's a 45-degree or frontal image!"}), 400
+
+        jaw_data = {
+            'jaw_cropped': cropped_b64,
+            'jaw_overlay': overlay_b64,
+        }
+        return jsonify({'jaw': jaw_data})
 
     except Exception as e:
         traceback.print_exc()

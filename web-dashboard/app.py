@@ -19,6 +19,8 @@ from flask import Flask, render_template, request, jsonify
 import torch
 from transformers import SegformerImageProcessor, SegformerForSemanticSegmentation
 import mediapipe as mp
+from sklearn.cluster import KMeans
+from collections import Counter
 from inference_sdk import InferenceHTTPClient
 import math
 from PIL import ImageDraw
@@ -102,11 +104,14 @@ def pil_to_rgb(pil_img: Image.Image) -> np.ndarray:
 
 
 def rgb_to_b64(arr: np.ndarray) -> str:
-    """Convert RGB numpy array to base64 PNG data URI."""
+    """Convert RGB numpy array to base64 JPEG data URI, resizing if too large to prevent QuotaExceededError."""
+    if arr is None: return None
     img_pil = Image.fromarray(arr.astype(np.uint8))
+    if max(img_pil.size) > 800:
+        img_pil.thumbnail((800, 800), Image.Resampling.LANCZOS)
     buf = io.BytesIO()
-    img_pil.save(buf, format="PNG")
-    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+    img_pil.save(buf, format="JPEG", quality=85)
+    return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
 def _get_mask(labels, label_idx):
@@ -307,32 +312,20 @@ def extract_jaw_mediapipe(pil_img: Image.Image):
     
     polygon_pts = np.array(polygon_pts, np.int32)
     
-    # Create mask and apply overlay
+    # Create mask and apply overlay to ORIGINAL image (no dots)
     poly_mask = np.zeros((h, w), dtype=np.uint8)
     cv2.fillPoly(poly_mask, [polygon_pts], 1)
     
-    overlay = annotated_image.copy()
+    overlay = img_rgb.copy()
     overlay[poly_mask == 1] = [170, 170, 170]
     
     alpha = 0.55
-    final_image = cv2.addWeighted(overlay, alpha, annotated_image, 1 - alpha, 0)
+    highlight_image = cv2.addWeighted(overlay, alpha, img_rgb, 1 - alpha, 0)
     
-    # For jaw, since it's a side profile, let's just extract a tight bounding box around the polygon
-    xs = polygon_pts[:, 0]
-    ys = polygon_pts[:, 1]
-    pad = 20
-    x1 = max(0, xs.min() - pad)
-    y1 = max(0, ys.min() - pad)
-    x2 = min(w, xs.max() + pad)
-    y2 = min(h, ys.max() + pad)
+    dots_b64 = rgb_to_b64(annotated_image)
+    highlight_b64 = rgb_to_b64(highlight_image)
     
-    jaw_crop_rgb = final_image[y1:y2, x1:x2]
-    
-    # We'll return final_image as white_bg_b64 equivalent, and jaw_crop_rgb as raw_crop_b64 equivalent
-    overlay_b64 = rgb_to_b64(final_image)
-    cropped_b64 = rgb_to_b64(jaw_crop_rgb)
-    
-    return overlay_b64, cropped_b64
+    return dots_b64, highlight_b64
 
 
 # ─────────────────────────────────────────────
@@ -613,6 +606,74 @@ def classify_hair_density():
 
 def classify_hairline_shape():
     return "N/A"  # cannot be measured from landmarks
+
+
+# ─────────────────────────────────────────────
+# Hair Color Analysis
+# ─────────────────────────────────────────────
+def classify_hair_color(hex_color):
+    """Classify hair color into categories based on dominant hex."""
+    hex_color = hex_color.lstrip('#')
+    r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+    brightness = (r + g + b) / 3
+    if r > g and r > b:
+        if brightness > 200: return "Light / Golden Blonde"
+        if brightness > 150: return "Dark Blonde / Honey"
+        if brightness > 100: return "Light Brown / Chestnut"
+        if brightness > 50:  return "Dark Brown"
+        return "Black / Very Dark Brown"
+    if g > r and g > b:
+        return "Green / Dyed Hair"
+    if b > r and b > g:
+        return "Blue / Dyed Hair"
+    # neutral
+    if brightness > 200: return "Platinum / Light Blonde"
+    if brightness > 150: return "Light Brown / Ash Blonde"
+    if brightness > 100: return "Medium Brown"
+    if brightness > 50:  return "Dark Brown"
+    return "Black / Very Dark Brown"
+
+
+def analyze_hair_color(img_rgb, hair_mask, n_colors=5):
+    """
+    Given the full RGB image and a boolean hair_mask, extract dominant
+    hair colors via KMeans.  Returns a dict with:
+      - primary_category  : str  (e.g. 'Dark Brown')
+      - primary_hex       : str  (e.g. '#503F37')
+      - palette           : list of {hex, rgb, percentage, category}
+    """
+    try:
+        hair_pixels = img_rgb[hair_mask]
+        if len(hair_pixels) < n_colors:
+            return {"primary_category": "N/A", "primary_hex": None, "palette": []}
+
+        kmeans = KMeans(n_clusters=n_colors, random_state=42, n_init=10)
+        kmeans.fit(hair_pixels)
+        centers = kmeans.cluster_centers_.astype(int)
+        label_counts = Counter(kmeans.labels_)
+        total = len(kmeans.labels_)
+        sorted_colors = sorted(label_counts.items(), key=lambda x: x[1], reverse=True)
+
+        palette = []
+        for color_idx, count in sorted_colors:
+            rgb = centers[color_idx]
+            hex_code = '#{:02X}{:02X}{:02X}'.format(int(rgb[0]), int(rgb[1]), int(rgb[2]))
+            palette.append({
+                "hex": hex_code,
+                "rgb": [int(rgb[0]), int(rgb[1]), int(rgb[2])],
+                "percentage": round((count / total) * 100, 1),
+                "category": classify_hair_color(hex_code),
+            })
+
+        primary = palette[0]
+        return {
+            "primary_category": primary["category"],
+            "primary_hex": primary["hex"],
+            "palette": palette,
+        }
+    except Exception as e:
+        print(f"[WARN] Hair color analysis failed: {e}")
+        return {"primary_category": "N/A", "primary_hex": None, "palette": []}
 
 
 # Smile classifiers
@@ -1135,7 +1196,11 @@ def analyze_all():
             "cropped": rgb_to_b64(cr_cheeks) if cr_cheeks is not None else None,
         }
 
-        # ── Build per-feature response dicts ──
+        # ── Hair Color Analysis ──
+        hair_mask = (labels == 13)
+        hair_color_analysis = analyze_hair_color(img_rgb, hair_mask)
+
+
         em = metrics.get("eyebrow", {})
         eyebrows_data = {
             # numeric metrics
@@ -1283,6 +1348,8 @@ def analyze_all():
             # images (hair=13)
             "hair_image_white": part_imgs["hair"]["white_bg"],
             "hair_image":       part_imgs["hair"]["cropped"],
+            # color analysis
+            **hair_color_analysis,
         }
 
         sm = metrics.get("smile", {})
@@ -1425,14 +1492,14 @@ def analyze_jaw():
         return jsonify({"error": f"Cannot open image: {e}"}), 400
 
     try:
-        overlay_b64, cropped_b64 = extract_jaw_mediapipe(pil_img)
+        dots_b64, highlight_b64 = extract_jaw_mediapipe(pil_img)
 
-        if overlay_b64 is None:
+        if dots_b64 is None:
             return jsonify({"error": "No face detected by MediaPipe. Please ensure it's a 45-degree or frontal image!"}), 400
 
         jaw_data = {
-            'jaw_cropped': cropped_b64,
-            'jaw_overlay': overlay_b64,
+            'jaw_cropped': dots_b64,
+            'jaw_overlay': highlight_b64,
         }
         return jsonify({'jaw': jaw_data})
 

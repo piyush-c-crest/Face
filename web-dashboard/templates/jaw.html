@@ -111,14 +111,14 @@
 
         <div class="image-card">
             <div style="text-align:center;">
-                <p style="font-size:11px;color:var(--text-highlight);margin-bottom:6px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Cropped (Raw Pixels)</p>
-                <img id="jawImage" src="" alt="Jaw">
-                <p style="margin-top:6px;font-size:12px;color:var(--text-secondary);">Jaw Region</p>
+                <p style="font-size:11px;color:var(--text-highlight);margin-bottom:6px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Landmarks Only</p>
+                <img id="jawImage" src="" alt="Jaw Landmarks">
+                <p id="jawImageLabel" style="margin-top:6px;font-size:12px;color:var(--text-secondary);">478 MediaPipe Landmarks</p>
             </div>
             <div style="text-align:center;">
-                <p style="font-size:11px;color:var(--text-highlight);margin-bottom:6px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Extracted (Masked)</p>
-                <img id="jawImageWB" src="" alt="Jaw White BG">
-                <p id="jawImageWBLabel" style="margin-top:6px;font-size:12px;color:var(--text-secondary);">Jaw — Extracted</p>
+                <p style="font-size:11px;color:var(--text-highlight);margin-bottom:6px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Dynamic Mask</p>
+                <img id="jawImageWB" src="" alt="Jaw Mask">
+                <p id="jawImageWBLabel" style="margin-top:6px;font-size:12px;color:var(--text-secondary);">Jaw Region Highlight</p>
             </div>
         </div>
 
@@ -291,7 +291,8 @@
                     if (res.jaw) {
                         if(img) { img.src = res.jaw.jaw_cropped; img.style.opacity = '1'; }
                         if(imgWB) { imgWB.src = res.jaw.jaw_overlay; imgWB.style.opacity = '1'; }
-                        document.getElementById('jawImageWBLabel').innerText = "45-Degree Full Highlight";
+                        document.getElementById('jawImageLabel').innerText = "45-Degree Landmarks";
+                        document.getElementById('jawImageWBLabel').innerText = "45-Degree Jaw Mask";
                     } else if (res.error) {
                         console.error(res.error);
                         alert("Error analyzing jaw: " + res.error);

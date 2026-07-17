@@ -6,7 +6,19 @@
     <title>Hair Aesthetic Analysis</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        :root { --bg-color:#f8fafc; --sidebar-bg:#ffffff; --card-bg:#ffffff; --text-primary:#1e293b; --text-secondary:#64748b; --text-highlight:#94a3b8; --border-color:#f1f5f9; --bar-bg:#e2e8f0; --bar-fill:#94a3b8; --marker-color:#1e293b; --tooltip-bg:#64748b; }
+        :root {
+            --bg-color: #f8fafc;
+            --sidebar-bg: #ffffff;
+            --card-bg: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --text-highlight: #94a3b8;
+            --border-color: #f1f5f9;
+            --bar-bg: #e2e8f0;
+            --bar-fill: #94a3b8;
+            --marker-color: #1e293b;
+            --tooltip-bg: #64748b;
+        }
         body { margin:0; font-family:'Inter',sans-serif; background:var(--bg-color); color:var(--text-primary); display:flex; height:100vh; overflow:hidden; }
         .sidebar { width:250px; background:var(--sidebar-bg); border-right:1px solid var(--border-color); padding:32px 0; overflow-y:auto; flex-shrink:0; }
         .sidebar-menu { list-style:none; padding:0; margin:0; font-size:14px; color:var(--text-secondary); }
@@ -24,8 +36,222 @@
         .header h1 span { color:var(--text-highlight); }
         .header p { font-size:15px; color:var(--text-secondary); margin:0 0 32px 0; }
         .header p strong { color:var(--text-primary); font-weight:600; }
-        .image-card { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:40px; margin-bottom:24px; display:flex; justify-content:center; align-items:center; gap: 40px; min-height:180px; box-shadow:0 2px 10px rgba(0,0,0,0.02); }
-        .image-card img { width: 300px; height: 300px; object-fit: contain; border-radius: 12px; }
+
+        /* ── Color Report Section ── */
+        .color-section { margin-bottom:32px; }
+        .color-section-title {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 6px;
+        }
+        .color-section-title h2 {
+            font-size: 26px;
+            font-weight: 600;
+            margin: 0;
+            letter-spacing: -0.3px;
+        }
+        .color-section-title h2 em {
+            font-style: normal;
+            color: #b45309;
+        }
+        .primary-color-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 6px 14px 6px 8px;
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+        .primary-color-swatch {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            border: 1px solid rgba(0,0,0,0.1);
+            flex-shrink: 0;
+        }
+        .color-intro {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin: 0 0 24px 0;
+            line-height: 1.6;
+        }
+        .color-intro strong { color: var(--text-primary); font-weight: 600; }
+
+        /* ── Split layout: palette left, image right ── */
+        .color-split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        /* Shades panel */
+        .shades-panel {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+        }
+        .shades-panel-header {
+            padding: 20px 24px 16px;
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-primary);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .shade-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px 24px;
+            border-bottom: 1px solid var(--border-color);
+            transition: background 0.15s;
+        }
+        .shade-row:last-child { border-bottom: none; }
+        .shade-row:hover { background: #fafbfc; }
+        .shade-swatch {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            border: 1px solid rgba(0,0,0,0.08);
+            flex-shrink: 0;
+        }
+        .shade-info { flex: 1; min-width: 0; }
+        .shade-hex {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-family: 'Courier New', monospace;
+        }
+        .shade-category {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+        .shade-pct-bar-wrap { width: 90px; }
+        .shade-pct-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-align: right;
+            margin-bottom: 4px;
+        }
+        .shade-pct-bar {
+            height: 4px;
+            background: var(--bar-bg);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .shade-pct-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #b45309, #92400e);
+            border-radius: 2px;
+            transition: width 0.6s ease;
+        }
+
+        /* Explanation card inside shades panel */
+        .explanation-card {
+            padding: 16px 24px;
+            background: #fffbeb;
+            border-top: 1px solid #fef3c7;
+        }
+        .explanation-label {
+            font-family: monospace;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            color: #b45309;
+            margin-bottom: 8px;
+        }
+        .explanation-text {
+            font-size: 13px;
+            color: #78350f;
+            line-height: 1.6;
+        }
+
+        /* Hair image panel */
+        .hair-image-panel {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+            gap: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+            min-height: 360px;
+        }
+        .hair-image-panel img {
+            max-width: 100%;
+            max-height: 300px;
+            object-fit: contain;
+        }
+        .hair-image-pair {
+            display: flex;
+            gap: 24px;
+            align-items: center;
+            justify-content: center;
+        }
+        .hair-img-container { text-align: center; }
+        .hair-img-container img { width: 180px; height: 180px; object-fit: contain; border-radius: 10px; }
+        .hair-img-label { font-size: 11px; color: var(--text-secondary); margin-top: 6px; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; }
+
+        /* ── Color Palette Strip ── */
+        .palette-strip-section {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+        }
+        .palette-strip-header {
+            font-size: 15px;
+            font-weight: 500;
+            margin-bottom: 16px;
+        }
+        .palette-strip {
+            display: flex;
+            gap: 0;
+            border-radius: 10px;
+            overflow: hidden;
+            height: 56px;
+        }
+        .palette-strip-seg {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: flex 0.5s ease;
+        }
+        .palette-strip-seg:hover { filter: brightness(1.1); }
+        .palette-hex-row {
+            display: flex;
+            gap: 0;
+            margin-top: 4px;
+        }
+        .palette-hex-label {
+            font-size: 10px;
+            font-family: monospace;
+            color: var(--text-secondary);
+            text-align: center;
+            padding: 3px 0;
+            font-weight: 600;
+            transition: flex 0.5s ease;
+        }
+
+        /* ── Existing metrics section ── */
+        .image-card { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:40px; margin-bottom:24px; display:flex; justify-content:center; align-items:center; gap:40px; min-height:180px; box-shadow:0 2px 10px rgba(0,0,0,0.02); }
+        .image-card img { width:300px; height:300px; object-fit:contain; border-radius:12px; }
         .bottom-split { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
         .grid-header { font-size:18px; font-weight:500; margin-bottom:16px; }
         .metric-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
@@ -66,6 +292,19 @@
         .metric-row:hover { background:#f1f5f9; }
         .metric-label { color:var(--text-secondary); font-weight:500; }
         .metric-val { color:var(--text-primary); font-weight:600; }
+
+        /* section divider */
+        .section-divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: 32px 0;
+        }
+        .section-heading {
+            font-size: 18px;
+            font-weight: 500;
+            margin: 0 0 20px 0;
+            color: var(--text-primary);
+        }
     </style>
 </head>
 <body>
@@ -99,6 +338,63 @@
     </div>
 
     <div id="results">
+
+        <!-- ══════════════════════════════════════════════
+             HAIR COLOR REPORT SECTION
+        ══════════════════════════════════════════════ -->
+        <div class="color-section">
+            <!-- Title row: "Your hair color  ■ Dark Brown" -->
+            <div class="color-section-title">
+                <h2>Your <em>hair</em> color</h2>
+                <div class="primary-color-badge" id="primaryColorBadge">
+                    <div class="primary-color-swatch" id="primaryColorSwatch"></div>
+                    <span id="primaryColorName">--</span>
+                </div>
+            </div>
+            <p class="color-intro">
+                Color plays a crucial role in determining <strong>contrast</strong> with your complexion and <strong>highlighting</strong> facial features.
+            </p>
+
+            <!-- Split: shades left, hair image right -->
+            <div class="color-split">
+
+                <!-- Left: Shades panel -->
+                <div class="shades-panel">
+                    <div class="shades-panel-header">Shades of your hair</div>
+                    <div id="shadesContainer"></div>
+                    <div class="explanation-card">
+                        <div class="explanation-label">Explanation</div>
+                        <p class="explanation-text" id="colorExplanationText">Loading color analysis…</p>
+                    </div>
+                </div>
+
+                <!-- Right: Hair image -->
+                <div class="hair-image-panel">
+                    <div class="hair-image-pair">
+                        <div class="hair-img-container">
+                            <p style="font-size:11px;color:var(--text-highlight);margin:0 0 6px 0;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Extracted (White BG)</p>
+                            <img id="hairImageWBColor" src="" alt="Hair White BG">
+                            <p class="hair-img-label">Hair — Extracted</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Palette strip -->
+            <div class="palette-strip-section">
+                <div class="palette-strip-header">Dominant color palette</div>
+                <div class="palette-strip" id="paletteStrip"></div>
+                <div class="palette-hex-row" id="paletteHexRow"></div>
+            </div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <!-- ══════════════════════════════════════════════
+             ORIGINAL HAIR METRICS SECTION
+        ══════════════════════════════════════════════ -->
+        <div class="section-heading">Hair &amp; Forehead Measurements</div>
+
         <div class="image-card">
             <div style="text-align:center;">
                 <p style="font-size:11px;color:var(--text-highlight);margin-bottom:6px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Cropped (Raw Pixels)</p>
@@ -199,6 +495,7 @@
 </div>
 
 <script>
+    // ── Carousel ──
     let currentSlide=0; const totalSlides=3;
     function updateCarousel(){for(let i=0;i<totalSlides;i++){const s=document.getElementById(`slide-${i}`);s.classList.remove('active','prev','next');if(i===currentSlide)s.classList.add('active');else if(i<currentSlide)s.classList.add('prev');else s.classList.add('next');}document.querySelectorAll('.carousel-nav .dot').forEach((d,i)=>d.classList.toggle('active',i===currentSlide));}
     function nextSlide(){currentSlide=(currentSlide+1)%totalSlides;updateCarousel();}
@@ -207,36 +504,149 @@
     function setVal(id,v){const el=document.getElementById(id);if(el)el.innerText=(v&&v!=='N/A')?v:'N/A';}
     function setMark(id,val,min,max){const p=15+((val-min)/(max-min))*70;document.getElementById(id).style.left=`${Math.max(5,Math.min(95,p))}%`;}
 
-    window.addEventListener('DOMContentLoaded',()=>{
-        const dataStr=sessionStorage.getItem('faceData_hair');
-        if(!dataStr){const b=document.createElement('div');b.innerHTML='<div style="background:var(--text-highlight);color:white;padding:15px;text-align:center;border-radius:8px;margin-bottom:20px;font-weight:bold;">No Face Data Found! Please go to Dashboard and upload your image first.</div>';document.querySelector('.header').after(b);return;}
-        const data=JSON.parse(dataStr);
-        if(data.error){alert(data.error);return;}
-        document.getElementById('results').style.display='block';
+    // ── Color Summary Report Helpers ──
+    function buildColorExplanation(category, palette) {
+        if (!category || category === 'N/A') return 'Hair color analysis not available.';
+        const primary = palette && palette[0];
+        const shadeCount = palette ? palette.length : 0;
+        const dominant = primary ? primary.hex : '';
+        const explanations = {
+            'Dark Brown':
+                `Your ${category} hair with subtle tonal shifts creates a clear border around your forehead and temples, which directs attention toward your eyes and gives your hairstyles a dense, structured presence in photos and real life.`,
+            'Black / Very Dark Brown':
+                `Your ${category} hair creates strong contrast against most skin tones, enhancing facial definition and giving your features a striking, polished appearance under any lighting.`,
+            'Light Brown / Chestnut':
+                `Your ${category} hair offers warm, versatile contrast that complements medium skin tones and adds depth to your facial features without creating a harsh visual line.`,
+            'Medium Brown':
+                `Your ${category} hair provides natural, balanced contrast with a wide range of complexions, creating harmonious framing for your facial features.`,
+            'Light Brown / Ash Blonde':
+                `Your ${category} hair offers a soft, neutral frame for your face, blending naturally with lighter complexions while adding subtle dimension.`,
+            'Dark Blonde / Honey':
+                `Your ${category} hair adds warm luminosity around your face, creating a sun-kissed effect that highlights your complexion and softens facial contours.`,
+            'Light / Golden Blonde':
+                `Your ${category} hair creates a bright, luminous frame that reflects light beautifully, drawing attention to your eyes and creating an open, approachable aesthetic.`,
+            'Platinum / Light Blonde':
+                `Your ${category} hair provides a striking, high-contrast look that amplifies facial features and creates a bold, editorial presence.`,
+        };
+        return explanations[category] ||
+            `Your ${category} hair creates a distinctive frame around your facial features, influencing perceived contrast and overall aesthetic harmony.`;
+    }
 
+    function buildShadesHTML(palette) {
+        if (!palette || palette.length === 0) return '<div style="padding:20px 24px;color:var(--text-secondary);font-size:14px;">No palette data available.</div>';
+        return palette.map(swatch => `
+            <div class="shade-row">
+                <div class="shade-swatch" style="background:${swatch.hex};"></div>
+                <div class="shade-info">
+                    <div class="shade-hex">${swatch.hex}</div>
+                    <div class="shade-category">${swatch.category}</div>
+                </div>
+                <div class="shade-pct-bar-wrap">
+                    <div class="shade-pct-label">${swatch.percentage}%</div>
+                    <div class="shade-pct-bar">
+                        <div class="shade-pct-fill" style="width:${swatch.percentage}%;"></div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function buildPaletteStrip(palette) {
+        const strip = document.getElementById('paletteStrip');
+        const hexRow = document.getElementById('paletteHexRow');
+        if (!palette || palette.length === 0) return;
+        strip.innerHTML = palette.map(s =>
+            `<div class="palette-strip-seg" style="flex:${s.percentage};background:${s.hex};" title="${s.hex} · ${s.percentage}%"></div>`
+        ).join('');
+        hexRow.innerHTML = palette.map(s =>
+            `<div class="palette-hex-label" style="flex:${s.percentage};overflow:hidden;">${s.hex}</div>`
+        ).join('');
+    }
+
+    // ── Main data loader ──
+    window.addEventListener('DOMContentLoaded', () => {
+        const dataStr = sessionStorage.getItem('faceData_hair');
+        if (!dataStr) {
+            const b = document.createElement('div');
+            b.innerHTML = '<div style="background:var(--text-highlight);color:white;padding:15px;text-align:center;border-radius:8px;margin-bottom:20px;font-weight:bold;">No Face Data Found! Please go to Dashboard and upload your image first.</div>';
+            document.querySelector('.header').after(b);
+            return;
+        }
+        const data = JSON.parse(dataStr);
+        if (data.error) { alert(data.error); return; }
+        document.getElementById('results').style.display = 'block';
+
+        // ── Color Report ──
+        const palette = data.palette || [];
+        const primaryCategory = data.primary_category || 'N/A';
+        const primaryHex = data.primary_hex || null;
+
+        // Primary color badge
+        const swatch = document.getElementById('primaryColorSwatch');
+        const nameEl = document.getElementById('primaryColorName');
+        if (primaryHex) {
+            swatch.style.background = primaryHex;
+            nameEl.textContent = primaryCategory;
+        } else {
+            swatch.style.background = '#ccc';
+            nameEl.textContent = 'N/A';
+        }
+
+        // Shades panel
+        document.getElementById('shadesContainer').innerHTML = buildShadesHTML(palette);
+
+        // Explanation
+        document.getElementById('colorExplanationText').textContent =
+            buildColorExplanation(primaryCategory, palette);
+
+        // Hair image for color section (white bg)
+        const imgWBColor = document.getElementById('hairImageWBColor');
+        if (imgWBColor && data.hair_image_white) imgWBColor.src = data.hair_image_white;
+
+        // Palette strip
+        buildPaletteStrip(palette);
+
+        // ── Existing metrics ──
         setVal('valTempleWidth',   data.temple_width_class);
         setVal('valHairVolume',    data.hair_volume);
         setVal('valHairDensity',   data.hair_density);
         setVal('valHairlineShape', data.hairline_shape);
 
-        const fw=parseFloat(data.forehead_width_mm)||0;
-        const fh=parseFloat(data.forehead_height_mm)||0;
-        const ta=parseFloat(data.right_temple_inclination_angle_deg)||0;
+        const fw = parseFloat(data.forehead_width_mm) || 0;
+        const fh = parseFloat(data.forehead_height_mm) || 0;
+        const ta = parseFloat(data.right_temple_inclination_angle_deg) || 0;
 
-        document.getElementById('valForeheadWidth').innerHTML=`${data.forehead_width_mm||'N/A'}<span> mm</span>`;
-        document.getElementById('valForeheadHeight').innerHTML=`${data.forehead_height_mm||'N/A'}<span> mm</span>`;
-        document.getElementById('valTempleAngle').innerHTML=`${data.right_temple_inclination_angle_deg||'N/A'}<span>°</span>`;
+        document.getElementById('valForeheadWidth').innerHTML  = `${data.forehead_width_mm || 'N/A'}<span> mm</span>`;
+        document.getElementById('valForeheadHeight').innerHTML = `${data.forehead_height_mm || 'N/A'}<span> mm</span>`;
+        document.getElementById('valTempleAngle').innerHTML    = `${data.right_temple_inclination_angle_deg || 'N/A'}<span>°</span>`;
 
-        setMark('markerFW',fw,100.14,111.90);
-        setMark('markerFH',fh,50,75);
-        setMark('markerTA',ta,5,25);
+        setMark('markerFW', fw, 100.14, 111.90);
+        setMark('markerFH', fh, 50, 75);
+        setMark('markerTA', ta, 5, 25);
 
-        const img=document.getElementById('hairImage'),imgWB=document.getElementById('hairImageWB');
-        if(img&&data.hair_image) img.src=data.hair_image;
-        if(imgWB&&data.hair_image_white) imgWB.src=data.hair_image_white;
+        const img   = document.getElementById('hairImage');
+        const imgWB = document.getElementById('hairImageWB');
+        if (img   && data.hair_image)       img.src   = data.hair_image;
+        if (imgWB && data.hair_image_white) imgWB.src = data.hair_image_white;
 
-        const det=document.getElementById('hairMetricsDetail');
-        if(det){const rows=[['Forehead Width',data.forehead_width_mm?data.forehead_width_mm+' mm':'N/A'],['Forehead Height',data.forehead_height_mm?data.forehead_height_mm+' mm':'N/A'],['Right Temple Inclination',data.right_temple_inclination_angle_deg?data.right_temple_inclination_angle_deg+'°':'N/A'],['Left Temple Inclination',data.left_temple_inclination_angle_deg?data.left_temple_inclination_angle_deg+'°':'N/A'],['Temple Width Class',data.temple_width_class],['Hair Volume','N/A'],['Hair Density','N/A'],['Hairline Shape','N/A']];det.innerHTML=rows.map(([l,v])=>`<div class="metric-row"><span class="metric-label">${l}</span><span class="metric-val">${v||'N/A'}</span></div>`).join('');}
+        const det = document.getElementById('hairMetricsDetail');
+        if (det) {
+            const rows = [
+                ['Forehead Width',          data.forehead_width_mm  ? data.forehead_width_mm + ' mm' : 'N/A'],
+                ['Forehead Height',         data.forehead_height_mm ? data.forehead_height_mm + ' mm' : 'N/A'],
+                ['Right Temple Inclination',data.right_temple_inclination_angle_deg ? data.right_temple_inclination_angle_deg + '°' : 'N/A'],
+                ['Left Temple Inclination', data.left_temple_inclination_angle_deg  ? data.left_temple_inclination_angle_deg  + '°' : 'N/A'],
+                ['Temple Width Class',      data.temple_width_class],
+                ['Primary Hair Color',      primaryCategory],
+                ['Primary Hex',             primaryHex || 'N/A'],
+                ['Hair Volume',             'N/A'],
+                ['Hair Density',            'N/A'],
+                ['Hairline Shape',          'N/A'],
+            ];
+            det.innerHTML = rows.map(([l,v]) =>
+                `<div class="metric-row"><span class="metric-label">${l}</span><span class="metric-val">${v||'N/A'}</span></div>`
+            ).join('');
+        }
     });
 </script>
 </body>

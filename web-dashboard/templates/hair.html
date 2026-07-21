@@ -305,6 +305,166 @@
             margin: 0 0 20px 0;
             color: var(--text-primary);
         }
+
+        /* ── Forehead Proportion Section ── */
+        .thirds-section { margin: 32px 0; }
+        .thirds-section h2 {
+            font-size: 26px; font-weight: 500; margin: 0 0 6px 0; letter-spacing: -0.3px;
+        }
+        .thirds-section h2 span { color: var(--text-highlight); }
+        .thirds-section > p { font-size: 13px; color: var(--text-secondary); margin: 0 0 20px 0; }
+        .thirds-body {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+        }
+        .thirds-photo-card {
+            background: #fafafa; border: 1px solid var(--border-color);
+            border-radius: 14px; overflow: hidden; display: flex;
+            align-items: center; justify-content: center; min-height: 420px;
+        }
+        .thirds-photo-card img {
+            width: 100%; height: 100%; object-fit: cover; display: block;
+        }
+        .thirds-right {
+            display: flex; flex-direction: column; gap: 0;
+            background: var(--card-bg); border: 1px solid var(--border-color);
+            border-radius: 14px; overflow: hidden;
+        }
+        .thirds-header-card {
+            padding: 24px 24px 20px 24px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .thirds-ratio-label {
+            font-family: monospace; font-size: 10px; color: var(--text-secondary);
+            text-transform: uppercase; letter-spacing: 1px; font-weight: 600;
+            margin-bottom: 8px; display: block;
+        }
+        .thirds-header-title {
+            font-size: 15px; font-weight: 600; line-height: 1.4;
+            color: var(--text-primary);
+        }
+        .thirds-bars-card {
+            padding: 24px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .thirds-bars-row {
+            display: flex; align-items: flex-end; gap: 32px;
+        }
+        .thirds-bars-group {
+            display: flex; flex-direction: column; gap: 6px; flex: 1;
+        }
+        .thirds-bars-sublabel {
+            font-family: monospace; font-size: 9px; color: var(--text-secondary);
+            text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
+        }
+        .thirds-proportion-text {
+            font-size: 11px; color: var(--text-primary); font-weight: 500;
+            white-space: nowrap;
+        }
+        .thirds-proportion-text strong { font-weight: 700; }
+        .thirds-bars-container {
+            display: flex; gap: 6px; align-items: flex-end;
+            height: 120px;
+        }
+        .thirds-bar {
+            width: 22px; border-radius: 3px 3px 0 0;
+            transition: height 0.6s ease-out;
+        }
+        .thirds-bar.light { background: #94a3b8; }
+        .thirds-bar.dark  { background: #1e293b; }
+        .thirds-val {
+            font-family: monospace; font-size: 11px;
+            color: var(--text-secondary); font-weight: 600;
+        }
+        .thirds-val-label {
+            font-family: monospace; font-size: 9px;
+            color: var(--text-secondary); text-transform: uppercase;
+            letter-spacing: 0.5px; margin-top: 2px;
+        }
+        .thirds-val-group { display: flex; flex-direction: column; gap: 2px; }
+        .thirds-sep {
+            width: 1px; background: var(--border-color);
+            align-self: stretch; margin: 0 8px;
+        }
+        .thirds-explanation-card {
+            padding: 18px 24px;
+        }
+        .thirds-exp-label {
+            font-family: monospace; font-size: 10px; color: #f59e0b;
+            text-transform: uppercase; letter-spacing: 1px; font-weight: 600;
+            margin-bottom: 8px; display: block;
+        }
+        .thirds-exp-text {
+            font-size: 13px; color: var(--text-secondary); line-height: 1.6;
+        }
+
+        /* ── Hairline Shape Section ── */
+        .hairline-section { margin: 32px 0; }
+        .hairline-section h2 {
+            font-size: 26px; font-weight: 500; margin: 0 0 6px 0; letter-spacing: -0.3px;
+        }
+        .hairline-section h2 span { color: var(--text-highlight); }
+        .hairline-section > p {
+            font-size: 13px; color: var(--text-secondary); margin: 0 0 20px 0;
+        }
+        .hairline-body {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .hairline-photo-card {
+            background: #fafafa; border: 1px solid var(--border-color);
+            border-radius: 14px; overflow: hidden; position: relative;
+            display: flex; align-items: center; justify-content: center;
+            min-height: 360px;
+        }
+        .hairline-photo-card img {
+            width: 100%; height: 100%; object-fit: cover; display: block;
+        }
+        .hairline-right {
+            display: flex; flex-direction: column; gap: 16px;
+        }
+        .hairline-diagram-card {
+            background: var(--card-bg); border: 1px solid var(--border-color);
+            border-radius: 14px; padding: 20px; display: flex;
+            flex-direction: column; align-items: center; justify-content: center;
+            min-height: 160px;
+        }
+        .hairline-diagram-card svg { max-height: 130px; width: auto; }
+        .hairline-shape-label {
+            font-size: 20px; font-weight: 500; margin: 10px 0 0 0;
+            text-align: center;
+        }
+        .hairline-metrics-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+        }
+        .hl-metric-card {
+            background: var(--card-bg); border: 1px solid var(--border-color);
+            border-radius: 12px; padding: 16px 18px;
+        }
+        .hl-metric-label {
+            font-family: monospace; font-size: 10px; color: var(--text-highlight);
+            text-transform: uppercase; letter-spacing: 1px; font-weight: 600;
+            margin-bottom: 20px; display: block;
+        }
+        .hl-metric-ref {
+            font-family: monospace; font-size: 10px; color: #cbd5e1;
+            font-weight: 600; float: right;
+        }
+        .hl-metric-value {
+            font-size: 18px; font-weight: 500; color: var(--text-primary);
+        }
+        .hl-explanation-card {
+            background: var(--card-bg); border: 1px solid var(--border-color);
+            border-radius: 12px; padding: 18px;
+        }
+        .hl-explanation-label {
+            font-family: monospace; font-size: 10px; color: #f59e0b;
+            text-transform: uppercase; letter-spacing: 1px; font-weight: 600;
+            margin-bottom: 10px; display: block;
+        }
+        .hl-explanation-text {
+            font-size: 13px; color: var(--text-secondary); line-height: 1.6;
+        }
     </style>
 </head>
 <body>
@@ -386,6 +546,60 @@
                 <div class="palette-strip-header">Dominant color palette</div>
                 <div class="palette-strip" id="paletteStrip"></div>
                 <div class="palette-hex-row" id="paletteHexRow"></div>
+            </div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <!-- ══════════════════════════════════════════════
+             HAIRLINE SHAPE SECTION
+        ══════════════════════════════════════════════ -->
+        <div class="hairline-section">
+            <h2>Your <span>hairline</span> shape</h2>
+            <p>We've assessed your hairline shape taking into account natural deviations and facial pose.</p>
+
+            <div class="hairline-body">
+                <!-- Left: original photo with landmark circles -->
+                <div class="hairline-photo-card">
+                    <img id="hairlineImage" src="" alt="Hairline Landmarks">
+                </div>
+
+                <!-- Right: diagram + 4 metric cards + explanation -->
+                <div class="hairline-right">
+
+                    <!-- Hair silhouette diagram card -->
+                    <div class="hairline-diagram-card">
+                        <img id="hairSilhouetteImg" src="" alt="Hair Silhouette" style="max-height:130px;max-width:100%;object-fit:contain;">
+                        <div class="hairline-shape-label" id="hairlineShapeLabel">--</div>
+                    </div>
+
+                    <!-- 4 metric cards -->
+                    <div class="hairline-metrics-grid">
+                        <div class="hl-metric-card">
+                            <span class="hl-metric-label">TEMPLE RECESSION <span class="hl-metric-ref">[A]</span></span>
+                            <div class="hl-metric-value" id="hlTempleRecession">--</div>
+                        </div>
+                        <div class="hl-metric-card">
+                            <span class="hl-metric-label">WIDOW'S PEAK <span class="hl-metric-ref">[B]</span></span>
+                            <div class="hl-metric-value" id="hlWidowsPeak">--</div>
+                        </div>
+                        <div class="hl-metric-card">
+                            <span class="hl-metric-label">LATERAL SHAPE <span class="hl-metric-ref">[C]</span></span>
+                            <div class="hl-metric-value" id="hlLateralShape">--</div>
+                        </div>
+                        <div class="hl-metric-card">
+                            <span class="hl-metric-label">FRONTAL EMINENCE <span class="hl-metric-ref">[D]</span></span>
+                            <div class="hl-metric-value" id="hlFrontalEminence">--</div>
+                        </div>
+                    </div>
+
+                    <!-- Explanation -->
+                    <div class="hl-explanation-card">
+                        <span class="hl-explanation-label">EXPLANATION</span>
+                        <div class="hl-explanation-text" id="hlExplanationText">--</div>
+                    </div>
+
+                </div>
             </div>
         </div>
 
@@ -493,6 +707,79 @@
             <div id="hairMetricsDetail" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 32px;"></div>
         </div>
     </div>
+
+        <!-- ══════════════════════════════════════════════
+             FOREHEAD PROPORTION SECTION
+        ══════════════════════════════════════════════ -->
+        <div class="section-divider"></div>
+
+        <div class="thirds-section">
+            <h2>The proportion of your <span>forehead</span></h2>
+            <p>The forehead proportion matters when choosing the correct <strong>hairstyle</strong> and affects overall facial balance.</p>
+
+            <div class="thirds-body">
+
+                <!-- Left: face photo with dashed proportion lines -->
+                <div class="thirds-photo-card">
+                    <img id="thirdsImage" src="" alt="Forehead Proportion Lines">
+                </div>
+
+                <!-- Right: metric card -->
+                <div class="thirds-right">
+
+                    <!-- Header -->
+                    <div class="thirds-header-card">
+                        <span class="thirds-ratio-label">FOREHEAD-TO-MIDFACE RATIO</span>
+                        <div class="thirds-header-title">The forehead height should be close to the midface and lower third heights.</div>
+                    </div>
+
+                    <!-- Bar chart -->
+                    <div class="thirds-bars-card">
+                        <div class="thirds-bars-row">
+
+                            <!-- Your proportion -->
+                            <div class="thirds-bars-group">
+                                <div class="thirds-bars-sublabel">YOUR PROPORTION</div>
+                                <div class="thirds-proportion-text" id="yourPropText">Forehead Height &lt; Midface Height</div>
+                                <div class="thirds-bars-container">
+                                    <div class="thirds-bar light" id="barYourForehead" style="height:60px;"></div>
+                                    <div class="thirds-bar dark"  id="barYourMidface"  style="height:80px;"></div>
+                                </div>
+                                <div class="thirds-val-group">
+                                    <div class="thirds-val-label">VALUE</div>
+                                    <div class="thirds-val" id="valYourRatio">0.00 : 1.00</div>
+                                </div>
+                            </div>
+
+                            <div class="thirds-sep"></div>
+
+                            <!-- Ideal proportion -->
+                            <div class="thirds-bars-group">
+                                <div class="thirds-bars-sublabel">IDEAL PROPORTION</div>
+                                <div class="thirds-proportion-text">Forehead Height &lt; Midface Height</div>
+                                <div class="thirds-bars-container">
+                                    <div class="thirds-bar light" style="height:57px;"></div>
+                                    <div class="thirds-bar dark"  style="height:60px;"></div>
+                                </div>
+                                <div class="thirds-val-group">
+                                    <div class="thirds-val-label">VALUE</div>
+                                    <div class="thirds-val">0.95 : 1.00</div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- Explanation -->
+                    <div class="thirds-explanation-card">
+                        <span class="thirds-exp-label">EXPLANATION</span>
+                        <div class="thirds-exp-text" id="thirdsExpText">--</div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div><!-- /#results -->
 </div>
 
 <script>
@@ -648,7 +935,88 @@
                 `<div class="metric-row"><span class="metric-label">${l}</span><span class="metric-val">${v||'N/A'}</span></div>`
             ).join('');
         }
+        // ── Hairline Shape ──
+        (function populateHairline() {
+            const hlImg = document.getElementById('hairlineImage');
+            if (hlImg && data.hairline_image) hlImg.src = data.hairline_image;
+
+            // Hair silhouette diagram
+            const silImg = document.getElementById('hairSilhouetteImg');
+            if (silImg && data.hair_silhouette) silImg.src = data.hair_silhouette;
+
+            const shape    = data.overall_shape    || 'N/A';
+            const temple   = data.temple_recession  || 'N/A';
+            const widow    = data.widows_peak        || 'N/A';
+            const lateral  = data.lateral_shape      || 'N/A';
+            const frontal  = data.frontal_eminence   || 'N/A';
+
+            document.getElementById('hairlineShapeLabel').textContent  = shape;
+            document.getElementById('hlTempleRecession').textContent   = temple;
+            document.getElementById('hlWidowsPeak').textContent        = widow;
+            document.getElementById('hlLateralShape').textContent      = lateral;
+            document.getElementById('hlFrontalEminence').textContent   = frontal;
+
+            // ── Explanation ──
+            document.getElementById('hlExplanationText').textContent = buildHairlineExplanation(shape, temple, widow, lateral, frontal);
+        })();
+
+        // ── Forehead Proportion (Facial Thirds) ──
+        (function populateThirds() {
+            const img = document.getElementById('thirdsImage');
+            if (img && data.thirds_image) img.src = data.thirds_image;
+
+            const fmRatio     = parseFloat(data.fm_ratio)     || 0;
+            const idealRatio  = parseFloat(data.ideal_fm_ratio) || 0.95;
+            const propClass   = data.proportion_class || 'N/A';
+            const explanation = data.fm_explanation   || '--';
+
+            // Value label
+            document.getElementById('valYourRatio').textContent =
+                fmRatio.toFixed(2) + ' : 1.00';
+
+            // Proportion text
+            const propEl = document.getElementById('yourPropText');
+            if (fmRatio >= 1) {
+                propEl.innerHTML = 'Forehead Height &gt; Midface Height';
+            } else if (Math.abs(fmRatio - 1) < 0.05) {
+                propEl.innerHTML = 'Forehead Height ≈ Midface Height';
+            } else {
+                propEl.innerHTML = 'Forehead Height &lt; Midface Height';
+            }
+
+            // Bar heights: scale relative to midface bar (fixed at 90px)
+            const MAX_BAR_PX = 90;
+            const fhBarPx = Math.round(fmRatio * MAX_BAR_PX);
+            const clampedFh = Math.max(8, Math.min(fhBarPx, MAX_BAR_PX + 40));
+            setTimeout(() => {
+                document.getElementById('barYourForehead').style.height = clampedFh + 'px';
+                document.getElementById('barYourMidface').style.height  = MAX_BAR_PX + 'px';
+            }, 200);
+
+            // Explanation
+            document.getElementById('thirdsExpText').textContent = explanation;
+        })();
     });
+
+    function buildHairlineExplanation(shape, temple, widow, lateral, frontal) {
+        const explanations = {
+            'Rounded':
+                `Your hairline sits ${temple === 'Minimal' ? 'low' : 'back'} and rounded with ${temple.toLowerCase()} temple recession and ${widow === 'Absence' ? 'no' : 'a'} widow's peak, so your upper face is framed by a compact, gently arcing border that follows your ${lateral.toLowerCase()} lateral forehead.`,
+            "Widow's Peak":
+                `A defined central point dips down at your hairline's midline — a widow's peak — creating a heart-shaped framing of your forehead. Temple recession is ${temple.toLowerCase()}, lateral shape is ${lateral.toLowerCase()}.`,
+            'M-Shaped':
+                `Your hairline forms a classic M-shape with ${temple.toLowerCase()} temple recession on both sides and a visible widow's peak at the center. This pattern is common and creates strong angular framing.`,
+            'Straight':
+                `Your hairline runs in a nearly straight horizontal line with flat frontal eminence and ${temple.toLowerCase()} temple recession, giving your forehead a clean, geometric edge.`,
+            'Receding':
+                `Your temples show significant recession, drawing the hairline back and widening the visible forehead area. The ${lateral.toLowerCase()} lateral shape and ${frontal.toLowerCase()} frontal eminence define the overall silhouette.`,
+            'Angular':
+                `Your hairline has a distinctive angular quality, with sharp transitions at the temples. ${widow === 'Present' ? 'A widows peak accentuates the central point.' : 'The central hairline is relatively flat.'} Lateral shape is ${lateral.toLowerCase()}.`,
+        };
+        return explanations[shape] ||
+            `Your ${shape} hairline has ${temple.toLowerCase()} temple recession, ${widow === 'Absence' ? 'no' : 'a'} widow's peak, ${lateral.toLowerCase()} lateral shape, and ${frontal.toLowerCase()} frontal eminence.`;
+    }
+
 </script>
 </body>
 </html>

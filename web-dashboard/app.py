@@ -27,6 +27,7 @@ from PIL import ImageDraw
 import tempfile
 from scipy.interpolate import splprep, splev
 from scipy.stats import skew as scipy_skew
+from scipy.signal import savgol_filter
 # App setup
 # ─────────────────────────────────────────────
 from dotenv import load_dotenv
@@ -606,8 +607,392 @@ def classify_hair_density():
     return "N/A"  # cannot be measured from landmarks
 
 def classify_hairline_shape():
-    return "N/A"  # cannot be measured from landmarks
+    return "N/A"  # stub – real result comes from analyze_hairline_shape()
 
+
+# ─────────────────────────────────────────────
+# Hairline Shape Analysis (notebook sections 23-25)
+# ─────────────────────────────────────────────
+def analyze_hairline_shape(img_rgb: np.ndarray, labels: np.ndarray):
+    """
+    Detects the hairline boundary using the segmentation mask, extracts
+    5 landmarks (A-E), classifies temple recession, widow's peak,
+    lateral shape, frontal eminence, and overall shape.
+    Returns dict with all fields + a base64 annotated image.
+    """
+    try:
+        hair_mask    = (labels == 13)
+        skin_mask    = (labels == 1)
+        eyebrow_mask = (labels == 6) | (labels == 7)
+        eye_mask     = (labels == 4) | (labels == 5)
+
+        if hair_mask.sum() == 0:
+            raise ValueError("No hair detected")
+
+        # Eye level Y
+        if eyebrow_mask.sum() > 0:
+            eye_level_y = int(np.mean(np.where(eyebrow_mask)[0]))
+        elif eye_mask.sum() > 0:
+            eye_level_y = int(np.mean(np.where(eye_mask)[0]))
+        else:
+            eye_level_y = int(img_rgb.shape[0] * 0.4)
+
+        top_of_head_y  = int(np.min(np.where(hair_mask)[0]))
+        forehead_height = max(eye_level_y - top_of_head_y, 1)
+
+        temple_row = int(top_of_head_y + 0.6 * forehead_height)
+        temple_row = min(max(temple_row, 0), img_rgb.shape[0] - 1)
+
+        face_row_mask = skin_mask[temple_row] | hair_mask[temple_row]
+        xs_row = np.where(face_row_mask)[0]
+        if len(xs_row) > 0:
+            temple_left_x, temple_right_x = int(xs_row.min()), int(xs_row.max())
+        else:
+            ys_h, xs_h = np.where(hair_mask)
+            temple_left_x, temple_right_x = int(xs_h.min()), int(xs_h.max())
+
+        x_range = np.arange(temple_left_x, temple_right_x + 1)
+        hairline_y_raw = np.full(len(x_range), np.nan)
+        for i, x in enumerate(x_range):
+            col = hair_mask[top_of_head_y:eye_level_y, x]
+            ys_col = np.where(col)[0]
+            if len(ys_col) > 0:
+                hairline_y_raw[i] = top_of_head_y + ys_col.max()
+
+        valid = ~np.isnan(hairline_y_raw)
+        if valid.sum() >= 2:
+            hairline_y_raw[~valid] = np.interp(x_range[~valid], x_range[valid], hairline_y_raw[valid])
+        else:
+            hairline_y_raw[~valid] = float(eye_level_y)
+
+        n_pts   = len(hairline_y_raw)
+        window  = min(31, n_pts if n_pts % 2 == 1 else n_pts - 1)
+        window  = max(window, 5)
+        if window % 2 == 0:
+            window -= 1
+        polyorder = 3 if window > 3 else 1
+        hairline_y_smooth = savgol_filter(hairline_y_raw, window_length=window, polyorder=polyorder)
+
+        n = len(x_range)
+        idx_A, idx_B, idx_C, idx_D, idx_E = 0, int(n*0.25), int(n*0.5), int(n*0.75), n-1
+        landmarks = {
+            'A': (int(x_range[idx_A]), float(hairline_y_smooth[idx_A])),
+            'B': (int(x_range[idx_B]), float(hairline_y_smooth[idx_B])),
+            'C': (int(x_range[idx_C]), float(hairline_y_smooth[idx_C])),
+            'D': (int(x_range[idx_D]), float(hairline_y_smooth[idx_D])),
+            'E': (int(x_range[idx_E]), float(hairline_y_smooth[idx_E])),
+        }
+
+        def normalize(v):
+            return v / forehead_height
+
+        # Temple recession
+        temple_avg_y   = (landmarks['A'][1] + landmarks['E'][1]) / 2
+        center_y       = landmarks['C'][1]
+        recession_score = normalize(center_y - temple_avg_y)
+        if recession_score < 0.12:   temple_recession = "Minimal"
+        elif recession_score < 0.28: temple_recession = "Moderate"
+        else:                        temple_recession = "Significant"
+
+        # Widow's peak
+        side_avg_y  = (landmarks['B'][1] + landmarks['D'][1]) / 2
+        widow_score = normalize(center_y - side_avg_y)
+        widows_peak = "Present" if widow_score > 0.08 else "Absence"
+
+        # Lateral shape
+        def segment_curvature(x_pts, y_pts):
+            if len(x_pts) < 3:
+                return 0.0
+            dy  = np.gradient(y_pts, x_pts)
+            d2y = np.gradient(dy, x_pts)
+            return float(np.mean(np.abs(d2y)))
+
+        left_seg  = (x_range >= landmarks['A'][0]) & (x_range <= landmarks['B'][0])
+        right_seg = (x_range >= landmarks['D'][0]) & (x_range <= landmarks['E'][0])
+        lateral_curv = (
+            segment_curvature(x_range[left_seg],  hairline_y_smooth[left_seg]) +
+            segment_curvature(x_range[right_seg], hairline_y_smooth[right_seg])
+        ) / 2
+        if lateral_curv < 0.01:   lateral_shape = "Straight"
+        elif lateral_curv < 0.05: lateral_shape = "Slightly Rounded"
+        elif lateral_curv < 0.15: lateral_shape = "Rounded"
+        else:                     lateral_shape = "Angular"
+
+        # Frontal eminence
+        central_mask = (
+            (x_range >= x_range[int(n*0.3)]) &
+            (x_range <= x_range[int(n*0.7)])
+        )
+        central_std = normalize(np.std(hairline_y_smooth[central_mask]))
+        if central_std < 0.03:   frontal_eminence = "Flat"
+        elif central_std < 0.08: frontal_eminence = "Slightly Rounded"
+        else:                    frontal_eminence = "Prominent"
+
+        # Overall shape
+        if widows_peak == "Present" and temple_recession in ["Moderate", "Significant"]:
+            overall_shape = "M-Shaped"
+        elif widows_peak == "Present":
+            overall_shape = "Widow's Peak"
+        elif temple_recession == "Significant":
+            overall_shape = "Receding"
+        elif lateral_shape in ["Rounded", "Slightly Rounded"] and frontal_eminence in ["Flat", "Slightly Rounded"]:
+            overall_shape = "Rounded"
+        elif lateral_shape == "Straight" and frontal_eminence == "Flat":
+            overall_shape = "Straight"
+        else:
+            overall_shape = "Rounded"
+
+        # ── Annotated image: original photo + small white circles at landmarks ──
+        annotated = img_rgb.copy()
+        for key, (px, py) in landmarks.items():
+            cv2.circle(annotated, (px, int(py)), 6, (255, 255, 255), -1)  # white fill
+            cv2.circle(annotated, (px, int(py)), 6, (40, 40, 40), 1)      # dark border
+        annotated_b64 = rgb_to_b64(annotated)
+
+        # ── Hair silhouette diagram: mask filled light-blue on white, dashed border ──
+        hair_sil_b64 = None
+        try:
+            hair_mask_u8 = hair_mask.astype(np.uint8) * 255
+            # Tight crop around hair region
+            ys_h, xs_h = np.where(hair_mask)
+            pad = 20
+            y1_h = max(int(ys_h.min()) - pad, 0)
+            y2_h = min(int(ys_h.max()) + pad, img_rgb.shape[0])
+            x1_h = max(int(xs_h.min()) - pad, 0)
+            x2_h = min(int(xs_h.max()) + pad, img_rgb.shape[1])
+
+            mask_crop = hair_mask_u8[y1_h:y2_h, x1_h:x2_h]
+
+            # White background + light blue-gray fill for hair region
+            sil_bgr = np.full((mask_crop.shape[0], mask_crop.shape[1], 3), 255, dtype=np.uint8)
+            fill_color_bgr = (220, 232, 240)  # #dce8f0 in BGR → light slate-blue
+            sil_bgr[mask_crop == 255] = fill_color_bgr
+
+            # Find contours and draw them as a "dashed" style using dotted cv2 drawing
+            contours, _ = cv2.findContours(mask_crop, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+            # Draw solid thin border first (light gray)
+            cv2.drawContours(sil_bgr, contours, -1, (160, 185, 195), 1)
+            # Simulate dashed by drawing every other segment thicker in a slightly darker color
+            for cnt in contours:
+                pts = cnt[:, 0, :]
+                step = max(1, len(pts) // 60)
+                for i in range(0, len(pts), step * 2):
+                    p1 = tuple(pts[i])
+                    p2 = tuple(pts[min(i + step, len(pts) - 1)])
+                    cv2.line(sil_bgr, p1, p2, (120, 155, 175), 2)
+
+            sil_rgb = cv2.cvtColor(sil_bgr, cv2.COLOR_BGR2RGB)
+            hair_sil_b64 = rgb_to_b64(sil_rgb)
+        except Exception as sil_e:
+            print(f"[WARN] Hair silhouette generation failed: {sil_e}")
+
+        # Landmark coords for frontend canvas drawing
+        lm_coords = {k: [int(v[0]), int(v[1])] for k, v in landmarks.items()}
+        hairline_pts = [
+            [int(x_range[i]), int(hairline_y_smooth[i])]
+            for i in range(0, len(x_range), max(1, len(x_range) // 80))
+        ]
+
+        return {
+            "overall_shape":      overall_shape,
+            "temple_recession":   temple_recession,
+            "widows_peak":        widows_peak,
+            "lateral_shape":      lateral_shape,
+            "frontal_eminence":   frontal_eminence,
+            "hairline_image":     annotated_b64,
+            "hair_silhouette":    hair_sil_b64,
+            "hairline_landmarks": lm_coords,
+            "hairline_pts":       hairline_pts,
+        }
+    except Exception as e:
+        print(f"[WARN] Hairline analysis failed: {e}")
+        import traceback; traceback.print_exc()
+        return {
+            "overall_shape": "N/A", "temple_recession": "N/A",
+            "widows_peak": "N/A", "lateral_shape": "N/A",
+            "frontal_eminence": "N/A", "hairline_image": None,
+            "hair_silhouette": None, "hairline_landmarks": {}, "hairline_pts": [],
+        }
+
+
+# ─────────────────────────────────────────────
+# Facial Thirds Analysis (notebook sections 26-29)
+# ─────────────────────────────────────────────
+def analyze_facial_thirds(img_rgb: np.ndarray, labels: np.ndarray):
+    """
+    Sections 26-29: Detect facial thirds landmarks and compute the
+    forehead-to-midface proportion ratio.
+
+    Hairline Y is detected using the Section-23 column-scan method:
+    for each x-column we find the LOWEST hair pixel above eye level —
+    the true hair/skin boundary — not the topmost crown pixel.
+
+    Returns dict with metrics + an annotated face image (dashed lines).
+    """
+    try:
+        h, w = img_rgb.shape[:2]
+        IDEAL_RATIO = 0.95
+
+        hair_mask_ft    = (labels == 13)
+        skin_mask_ft    = (labels == 1)
+        nose_mask_ft    = (labels == 2)
+        eyebrow_mask_ft = (labels == 6) | (labels == 7)
+        eye_mask_ft     = (labels == 4) | (labels == 5)
+
+        # ── Step 1: Eyebrow / eye level Y (compute first — needed to bound hairline scan) ──
+        if eyebrow_mask_ft.sum() > 0:
+            eyebrow_y = int(np.mean(np.where(eyebrow_mask_ft)[0]))
+        elif eye_mask_ft.sum() > 0:
+            eyebrow_y = int(np.mean(np.where(eye_mask_ft)[0]))
+        else:
+            eyebrow_y = int(h * 0.4)
+
+        # ── Step 2: Hairline Y — Section-23 column-scan boundary method ──
+        # Scan each x-column: find the LOWEST hair pixel that still sits ABOVE
+        # eye level. That is where hair ends and forehead skin begins — the true
+        # hairline — NOT the topmost crown pixel (np.min of the hair mask rows).
+        if hair_mask_ft.sum() > 0:
+            _top_y   = int(np.min(np.where(hair_mask_ft)[0]))
+            _ys_h, _xs_h = np.where(hair_mask_ft)
+            _x_min_h, _x_max_h = int(_xs_h.min()), int(_xs_h.max())
+
+            _hl_raw  = []
+            _x_range = np.arange(_x_min_h, _x_max_h + 1)
+            for _x in _x_range:
+                _col = hair_mask_ft[_top_y:eyebrow_y, _x]
+                _ys_col = np.where(_col)[0]
+                if len(_ys_col) > 0:
+                    _hl_raw.append(_top_y + int(_ys_col.max()))
+                else:
+                    _hl_raw.append(np.nan)
+
+            _hl_raw = np.array(_hl_raw, dtype=float)
+            _valid  = ~np.isnan(_hl_raw)
+            if _valid.sum() >= 2:
+                _hl_raw[~_valid] = np.interp(
+                    _x_range[~_valid], _x_range[_valid], _hl_raw[_valid])
+            else:
+                _hl_raw[~_valid] = float(eyebrow_y)
+
+            # Smooth with Savitzky-Golay (same as Section 23)
+            _n_pts   = len(_hl_raw)
+            _win     = min(31, _n_pts if _n_pts % 2 == 1 else _n_pts - 1)
+            _win     = max(_win, 5)
+            if _win % 2 == 0:
+                _win -= 1
+            _poly    = 3 if _win > 3 else 1
+            _hl_sm   = savgol_filter(_hl_raw, window_length=_win, polyorder=_poly)
+
+            # Average the central 40 % of the smoothed curve (ignores temple dips)
+            _n       = len(_x_range)
+            _cm      = (_x_range >= _x_range[int(_n * 0.3)]) & \
+                       (_x_range <= _x_range[int(_n * 0.7)])
+            hairline_y = int(np.mean(_hl_sm[_cm]))
+        else:
+            hairline_y = int(h * 0.1)
+
+        # 3. Nose base Y
+        if nose_mask_ft.sum() > 0:
+            nose_base_y = int(np.max(np.where(nose_mask_ft)[0]))
+        else:
+            nose_base_y = int(h * 0.6)
+
+        # 4. Chin Y (bottom of skin mask)
+        if skin_mask_ft.sum() > 0:
+            chin_y = int(np.max(np.where(skin_mask_ft)[0]))
+        else:
+            chin_y = h - 1
+
+        # Face width at eyebrow level (for drawing horizontal lines)
+        face_row = skin_mask_ft[eyebrow_y] | hair_mask_ft[eyebrow_y]
+        xs_row   = np.where(face_row)[0]
+        if len(xs_row) > 0:
+            face_left_x, face_right_x = int(xs_row.min()), int(xs_row.max())
+        else:
+            ys_h, xs_h = np.where(hair_mask_ft) if hair_mask_ft.sum() > 0 else ([0], [0, w-1])
+            face_left_x, face_right_x = int(xs_h.min()), int(xs_h.max())
+
+        # Section heights
+        forehead_h  = max(eyebrow_y  - hairline_y,  1)
+        midface_h   = max(nose_base_y - eyebrow_y,   1)
+        lower3rd_h  = max(chin_y      - nose_base_y, 1)
+
+        # Forehead-to-midface ratio
+        fm_ratio = round(forehead_h / midface_h, 3)
+
+        if fm_ratio < 0.70:
+            proportion_class = "Short Forehead"
+            explanation = (
+                "Your low-set hairline shortens the vertical distance between the hairline "
+                "and eyebrows, making the forehead noticeably smaller than the midface. "
+                "Hairstyles with volume or height at the crown can help visually balance this."
+            )
+        elif fm_ratio < 0.85:
+            proportion_class = "Slightly Short Forehead"
+            explanation = (
+                "Your forehead is a bit shorter than the midface. This is a common, mild "
+                "variation that generally still reads as balanced, though styles with some "
+                "lift at the front can add extra harmony."
+            )
+        elif fm_ratio <= 1.10:
+            proportion_class = "Balanced"
+            explanation = (
+                "Your forehead height is close to your midface height, which is considered "
+                "a balanced, classically proportioned ratio."
+            )
+        else:
+            proportion_class = "Long Forehead"
+            explanation = (
+                "Your forehead is taller than your midface. A hairstyle with a fringe or a "
+                "lower, textured hairline can help visually shorten the forehead."
+            )
+
+        # ── Annotated face image: draw 4 dashed horizontal lines ──
+        annotated = img_rgb.copy()
+        line_x_min = max(face_left_x  - 15, 0)
+        line_x_max = min(face_right_x + 15, w - 1)
+
+        for y_level in [hairline_y, eyebrow_y, nose_base_y, chin_y]:
+            # White dashes
+            dash_len, gap_len = 12, 8
+            x = line_x_min
+            while x < line_x_max:
+                x_end = min(x + dash_len, line_x_max)
+                cv2.line(annotated, (x, y_level), (x_end, y_level), (255, 255, 255), 2)
+                x = x_end + gap_len
+            # Semi-transparent dark underline (simulates dual-line from notebook)
+            x = line_x_min
+            while x < line_x_max:
+                x_end = min(x + dash_len, line_x_max)
+                cv2.line(annotated, (x, y_level), (x_end, y_level), (40, 40, 40), 1)
+                x = x_end + gap_len
+
+        thirds_img_b64 = rgb_to_b64(annotated)
+
+        return {
+            "hairline_y":        hairline_y,
+            "eyebrow_y":         eyebrow_y,
+            "nose_base_y":       nose_base_y,
+            "chin_y":            chin_y,
+            "forehead_height_px": forehead_h,
+            "midface_height_px":  midface_h,
+            "lower_third_px":     lower3rd_h,
+            "fm_ratio":           fm_ratio,
+            "ideal_fm_ratio":     IDEAL_RATIO,
+            "proportion_class":   proportion_class,
+            "fm_explanation":     explanation,
+            "thirds_image":       thirds_img_b64,
+        }
+    except Exception as e:
+        print(f"[WARN] Facial thirds analysis failed: {e}")
+        import traceback; traceback.print_exc()
+        return {
+            "hairline_y": None, "eyebrow_y": None, "nose_base_y": None, "chin_y": None,
+            "forehead_height_px": None, "midface_height_px": None, "lower_third_px": None,
+            "fm_ratio": None, "ideal_fm_ratio": 0.95,
+            "proportion_class": "N/A", "fm_explanation": "Analysis failed.",
+            "thirds_image": None,
+        }
 
 # ─────────────────────────────────────────────
 # Hair Color Analysis
@@ -1365,6 +1750,15 @@ def analyze_all():
         hair_mask = (labels == 13)
         hair_color_analysis = analyze_hair_color(img_rgb, hair_mask)
 
+        # ── Hairline Shape Analysis ──
+        hairline_analysis = analyze_hairline_shape(img_rgb, labels)
+
+        # ── Facial Thirds Analysis ──
+        # Pass the smoothed hairline curve from hairline_analysis for accurate hairline_y
+        _hl_pts  = hairline_analysis.get("hairline_pts", [])
+        _hl_lm   = hairline_analysis.get("hairline_landmarks", {})
+        thirds_analysis = analyze_facial_thirds(img_rgb, labels)
+
         # ── Skin Analysis ──
         skin_data = analyze_skin(img_rgb, pts)
 
@@ -1512,12 +1906,16 @@ def analyze_all():
             "temple_width_class": classify_temple_width(hm.get("forehead_width_mm")),
             "hair_volume":        classify_hair_volume(),
             "hair_density":       classify_hair_density(),
-            "hairline_shape":     classify_hairline_shape(),
+            "hairline_shape":     hairline_analysis.get("overall_shape", "N/A"),
             # images (hair=13)
             "hair_image_white": part_imgs["hair"]["white_bg"],
             "hair_image":       part_imgs["hair"]["cropped"],
             # color analysis
             **hair_color_analysis,
+            # hairline shape analysis
+            **hairline_analysis,
+            # facial thirds / forehead proportion
+            **thirds_analysis,
         }
 
         sm = metrics.get("smile", {})

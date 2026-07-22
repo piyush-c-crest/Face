@@ -19,416 +19,141 @@
             --marker-color: #1e293b;
             --tooltip-bg: #64748b;
         }
-
-        body {
-            margin: 0;
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-primary);
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        .sidebar {
-            width: 250px;
-            background: var(--sidebar-bg);
-            border-right: 1px solid var(--border-color);
-            padding: 32px 0;
-            overflow-y: auto;
-            flex-shrink: 0;
-        }
-
-        .sidebar-menu {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-            font-size: 14px;
-            color: var(--text-secondary);
-        }
-
-        .sidebar-menu li {
-            padding: 12px 24px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-        }
-
-        .sidebar-menu li:hover { color: var(--text-primary); }
-
-        .sidebar-menu li.has-children {
-            font-weight: 500;
-            color: var(--text-primary);
-        }
-
-        .sidebar-menu li.has-children::before {
-            content: "v";
-            margin-right: 12px;
-            font-size: 10px;
-            font-family: monospace;
-        }
-
-        .sidebar-menu li.collapsed::before { content: ">"; }
-
-        .sidebar-submenu {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .sidebar-submenu li {
-            padding: 10px 24px 10px 48px;
-            margin: 4px 12px;
-            border-radius: 8px;
-            color: var(--text-secondary);
-        }
-
-        .sidebar-submenu li:hover {
-            background: #f8fafc;
-            color: var(--text-primary);
-        }
-
-        .sidebar-submenu li.active {
-            background: #ffffff;
-            color: var(--text-primary);
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            font-weight: 500;
-        }
-
-        .main-content {
-            flex-grow: 1;
-            padding: 40px;
-            overflow-y: auto;
-        }
-
-        .header h1 {
-            font-size: 32px;
-            font-weight: 600;
-            margin: 0 0 12px 0;
-            letter-spacing: -0.5px;
-        }
-
-        .header h1 span { color: var(--text-highlight); }
-
-        .header p {
-            font-size: 15px;
-            color: var(--text-secondary);
-            margin: 0 0 32px 0;
-        }
-
-        .header p strong {
-            color: var(--text-primary);
-            font-weight: 600;
-        }
-
-        .upload-row { margin-bottom: 20px; }
-
-        .upload-btn {
-            background-color: var(--text-primary);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-        }
-
-        .image-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 40px;
-            margin-bottom: 24px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 40px;
-            min-height: 180px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
-        }
-
-        .image-card img { width: 300px; height: 300px; object-fit: contain; border-radius: 12px; }
-
-        .bottom-split {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
-        }
-
-        .grid-header {
-            font-size: 18px;
-            font-weight: 500;
-            margin-bottom: 16px;
-        }
-
-        .metric-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-        }
-
-        .class-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 24px 20px;
-            position: relative;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
-            transition: all 0.2s;
-            cursor: default;
-        }
-
-        .class-card:hover { border-color: #cbd5e1; }
-
-        .class-label {
-            font-family: monospace;
-            font-size: 10px;
-            color: var(--text-highlight);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 40px;
-            font-weight: 600;
-        }
-
-        .class-value {
-            font-size: 18px;
-            font-weight: 500;
-            color: var(--text-primary);
-        }
-
-        .class-card .tooltip {
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%) translateY(-10px);
-            background: var(--tooltip-bg);
-            color: white;
-            padding: 16px;
-            border-radius: 8px;
-            font-size: 13px;
-            line-height: 1.4;
-            width: 200px;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.2s;
-            z-index: 10;
-            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
-        }
-
-        .class-card .tooltip::after {
-            content: '';
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            border-width: 6px;
-            border-style: solid;
-            border-color: var(--tooltip-bg) transparent transparent transparent;
-        }
-
-        .class-card .tooltip .tooltip-title {
-            font-family: monospace;
-            font-size: 10px;
-            text-transform: uppercase;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #f8fafc;
-        }
-
-        .class-card:hover .tooltip {
-            opacity: 1;
-            visibility: visible;
-            transform: translateX(-50%) translateY(-5px);
-        }
-
-        .carousel-container {
-            position: relative;
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
-            overflow: hidden;
-            min-height: 350px;
-        }
-
-        .carousel-nav {
-            position: absolute;
-            top: 24px;
-            right: 24px;
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            color: #cbd5e1;
-            font-size: 14px;
-            z-index: 20;
-            user-select: none;
-        }
-
-        .carousel-nav .arrow {
-            cursor: pointer;
-            padding: 0 4px;
-            transition: color 0.2s;
-        }
-
-        .carousel-nav .arrow:hover { color: var(--text-primary); }
-
-        .carousel-nav .dot {
-            width: 6px;
-            height: 6px;
-            background: #e2e8f0;
-            border-radius: 50%;
-            cursor: pointer;
-        }
-
-        .carousel-nav .dot.active { background: #94a3b8; }
-
-        .range-card {
-            padding: 24px;
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            box-sizing: border-box;
-            transition: transform 0.4s ease, opacity 0.4s ease;
-            opacity: 0;
-            pointer-events: none;
-            background: var(--card-bg);
-        }
-
-        .range-card.active {
-            opacity: 1;
-            pointer-events: auto;
-            transform: translateX(0);
-        }
-
-        .range-card.prev { transform: translateX(-100%); }
-        .range-card.next { transform: translateX(100%); }
-
-        .range-card h3 {
-            margin: 0 0 8px 0;
-            font-size: 18px;
-            font-weight: 500;
-        }
-
-        .range-card h3 .highlight { color: var(--text-highlight); }
-
-        .range-card p.desc {
-            font-size: 13px;
-            color: var(--text-secondary);
-            margin: 0 0 32px 0;
-            line-height: 1.5;
-            max-width: 85%;
-        }
-
-        .range-box {
-            background: #fafafa;
-            border-radius: 8px;
-            padding: 24px;
-            border: 1px solid #f1f5f9;
-        }
-
-        .range-box-header {
-            display: flex;
-            justify-content: space-between;
-            font-family: monospace;
-            font-size: 10px;
-            color: var(--text-highlight);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 12px;
-            font-weight: 600;
-        }
-
-        .range-value {
-            font-size: 28px;
-            font-weight: 600;
-            margin-bottom: 40px;
-        }
-
-        .range-value span {
-            font-size: 14px;
-            font-weight: 500;
-            margin-left: 2px;
-            color: var(--text-primary);
-        }
-
-        .slider-container {
-            position: relative;
-            height: 40px;
-        }
-
-        .slider-track {
-            position: absolute;
-            bottom: 20px;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: var(--bar-bg);
-            border-radius: 2px;
-        }
-
-        .slider-fill {
-            position: absolute;
-            bottom: 20px;
-            height: 4px;
-            background: var(--bar-fill);
-            border-radius: 2px;
-        }
-
-        .slider-marker {
-            position: absolute;
-            bottom: 24px;
-            width: 4px;
-            height: 4px;
-            background: var(--marker-color);
-            transform: translateX(-50%);
-            transition: left 0.5s ease-out;
-        }
-
-        .slider-marker::after {
-            content: '';
-            position: absolute;
-            top: 4px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 1px;
-            height: 12px;
-            background: var(--bar-fill);
-        }
-
-        .slider-labels {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .slider-labels span {
-            font-size: 10px;
-            font-weight: 500;
-        }
-
-        #results { display: block; }
-
-        .metric-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 12px;
-            border-radius: 8px;
-            background: #f8fafc;
-            border: 1px solid var(--border-color);
-            font-size: 13px;
-        }
-        .metric-row:hover { background: #f1f5f9; }
-        .metric-label { color: var(--text-secondary); font-weight: 500; }
-        .metric-val { color: var(--text-primary); font-weight: 600; }
+        body { margin:0; font-family:'Inter',sans-serif; background:var(--bg-color); color:var(--text-primary); display:flex; height:100vh; overflow:hidden; }
+        .sidebar { width:250px; background:var(--sidebar-bg); border-right:1px solid var(--border-color); padding:32px 0; overflow-y:auto; flex-shrink:0; }
+        .sidebar-menu { list-style:none; padding:0; margin:0; font-size:14px; color:var(--text-secondary); }
+        .sidebar-menu li { padding:12px 24px; cursor:pointer; display:flex; align-items:center; }
+        .sidebar-menu li:hover { color:var(--text-primary); }
+        .sidebar-menu li.has-children { font-weight:500; color:var(--text-primary); }
+        .sidebar-menu li.has-children::before { content:"v"; margin-right:12px; font-size:10px; font-family:monospace; }
+        .sidebar-menu li.collapsed::before { content:">"; }
+        .sidebar-submenu { list-style:none; padding:0; margin:0; }
+        .sidebar-submenu li { padding:10px 24px 10px 48px; margin:4px 12px; border-radius:8px; color:var(--text-secondary); }
+        .sidebar-submenu li:hover { background:#f8fafc; color:var(--text-primary); }
+        .sidebar-submenu li.active { background:#ffffff; color:var(--text-primary); box-shadow:0 1px 3px rgba(0,0,0,0.05); font-weight:500; }
+        .main-content { flex-grow:1; padding:40px; overflow-y:auto; }
+        .header h1 { font-size:32px; font-weight:600; margin:0 0 12px 0; letter-spacing:-0.5px; }
+        .header h1 span { color:var(--text-highlight); }
+        .header p { font-size:15px; color:var(--text-secondary); margin:0 0 32px 0; line-height:1.6; }
+        .header p strong { color:var(--text-primary); font-weight:600; }
+        .section-header { margin:40px 0 8px 0; }
+        .section-header h2 { font-size:26px; font-weight:600; margin:0 0 6px 0; letter-spacing:-0.3px; }
+        .section-header h2 span { color:var(--text-highlight); }
+        .section-header p { font-size:14px; color:var(--text-secondary); margin:0 0 20px 0; line-height:1.6; }
+        .section-header p strong { color:var(--text-primary); font-weight:600; }
+        .image-card { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:40px; margin-bottom:24px; display:flex; justify-content:center; align-items:center; gap:40px; min-height:180px; box-shadow:0 2px 10px rgba(0,0,0,0.02); }
+        .image-label { font-size:11px; color:var(--text-highlight); margin-bottom:6px; font-weight:600; letter-spacing:1px; text-transform:uppercase; }
+        .image-sub { margin-top:6px; font-size:12px; color:var(--text-secondary); }
+        .bottom-split { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+        .grid-header { font-size:18px; font-weight:500; margin-bottom:16px; }
+        .metric-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+        .class-card { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:24px 20px; position:relative; box-shadow:0 2px 10px rgba(0,0,0,0.02); transition:all 0.2s; cursor:default; }
+        .class-card:hover { border-color:#cbd5e1; }
+        .class-label { font-family:monospace; font-size:10px; color:var(--text-highlight); text-transform:uppercase; letter-spacing:1px; margin-bottom:40px; font-weight:600; }
+        .class-value { font-size:18px; font-weight:500; color:var(--text-primary); }
+        .class-card .tooltip { position:absolute; bottom:100%; left:50%; transform:translateX(-50%) translateY(-10px); background:var(--tooltip-bg); color:white; padding:16px; border-radius:8px; font-size:13px; line-height:1.4; width:200px; opacity:0; visibility:hidden; transition:all 0.2s; z-index:10; box-shadow:0 10px 15px -3px rgba(0,0,0,0.1); }
+        .class-card .tooltip::after { content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%); border-width:6px; border-style:solid; border-color:var(--tooltip-bg) transparent transparent transparent; }
+        .class-card .tooltip .tooltip-title { font-family:monospace; font-size:10px; text-transform:uppercase; margin-bottom:8px; font-weight:600; color:#f8fafc; }
+        .class-card:hover .tooltip { opacity:1; visibility:visible; transform:translateX(-50%) translateY(-5px); }
+        .carousel-container { position:relative; background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,0.02); overflow:hidden; min-height:350px; }
+        .carousel-nav { position:absolute; top:24px; right:24px; display:flex; gap:8px; align-items:center; color:#cbd5e1; font-size:14px; z-index:20; user-select:none; }
+        .carousel-nav .arrow { cursor:pointer; padding:0 4px; transition:color 0.2s; }
+        .carousel-nav .arrow:hover { color:var(--text-primary); }
+        .carousel-nav .dot { width:6px; height:6px; background:#e2e8f0; border-radius:50%; cursor:pointer; }
+        .carousel-nav .dot.active { background:#94a3b8; }
+        .range-card { padding:24px; position:absolute; top:0; left:0; width:100%; height:100%; box-sizing:border-box; transition:transform 0.4s ease, opacity 0.4s ease; opacity:0; pointer-events:none; background:var(--card-bg); }
+        .range-card.active { opacity:1; pointer-events:auto; transform:translateX(0); }
+        .range-card.prev { transform:translateX(-100%); }
+        .range-card.next { transform:translateX(100%); }
+        .range-card h3 { margin:0 0 8px 0; font-size:18px; font-weight:500; }
+        .range-card h3 .highlight { color:var(--text-highlight); }
+        .range-card p.desc { font-size:13px; color:var(--text-secondary); margin:0 0 32px 0; line-height:1.5; max-width:85%; }
+        .range-box { background:#fafafa; border-radius:8px; padding:24px; border:1px solid #f1f5f9; }
+        .range-box-header { display:flex; justify-content:space-between; font-family:monospace; font-size:10px; color:var(--text-highlight); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px; font-weight:600; }
+        .range-value { font-size:28px; font-weight:600; margin-bottom:40px; }
+        .range-value span { font-size:14px; font-weight:500; margin-left:2px; color:var(--text-primary); }
+        .slider-container { position:relative; height:40px; }
+        .slider-track { position:absolute; bottom:20px; left:0; right:0; height:4px; background:var(--bar-bg); border-radius:2px; }
+        .slider-fill { position:absolute; bottom:20px; height:4px; background:var(--bar-fill); border-radius:2px; }
+        .slider-marker { position:absolute; bottom:24px; width:4px; height:4px; background:var(--marker-color); transform:translateX(-50%); transition:left 0.5s ease-out; }
+        .slider-marker::after { content:''; position:absolute; top:4px; left:50%; transform:translateX(-50%); width:1px; height:12px; background:var(--bar-fill); }
+        .slider-labels { position:absolute; bottom:0; left:0; right:0; display:flex; justify-content:space-between; font-size:12px; font-weight:600; }
+        .slider-labels span { font-size:10px; font-weight:500; }
+        .eye-shape-split { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:24px; }
+        .eye-face-panel { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,0.02); min-height:400px; }
+        .eye-face-panel img { width:100%; height:100%; object-fit:cover; }
+        .eye-shape-details { display:flex; flex-direction:column; gap:16px; }
+        .eye-silhouette-panel { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:24px; display:flex; justify-content:center; align-items:center; gap:32px; min-height:120px; box-shadow:0 2px 10px rgba(0,0,0,0.02); }
+        .eye-silhouette-panel img { max-width:160px; max-height:80px; object-fit:contain; }
+        .shape-name-block { text-align:center; font-size:22px; font-weight:500; color:var(--text-primary); margin:4px 0 12px; }
+        .shape-cards-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+        .shape-mini-card { background:var(--card-bg); border:1px solid var(--border-color); border-radius:10px; padding:16px; box-shadow:0 1px 4px rgba(0,0,0,0.02); }
+        .shape-mini-label { font-family:monospace; font-size:9px; color:var(--text-highlight); text-transform:uppercase; letter-spacing:1px; margin-bottom:16px; font-weight:600; }
+        .shape-mini-value { font-size:16px; font-weight:500; color:var(--text-primary); }
+        .explanation-block { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:20px; box-shadow:0 1px 4px rgba(0,0,0,0.02); }
+        .expl-label { font-family:monospace; font-size:9px; color:var(--text-highlight); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px; font-weight:600; }
+        .expl-text { font-size:13px; color:var(--text-secondary); line-height:1.65; }
+        .visual-features-layout { display:grid; grid-template-columns:2fr 1fr; gap:24px; margin-bottom:24px; align-items:start; }
+        .features-left { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+        .feature-tile { background:var(--card-bg); border:1px solid var(--border-color); border-radius:10px; padding:20px; min-height:100px; box-shadow:0 1px 4px rgba(0,0,0,0.02); }
+        .feature-tile-name { font-size:14px; font-weight:500; color:var(--text-primary); }
+        .features-explanation { background:var(--card-bg); border:1px solid var(--border-color); border-radius:10px; padding:20px; box-shadow:0 1px 4px rgba(0,0,0,0.02); }
+        .features-face-panel { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; overflow:hidden; min-height:300px; box-shadow:0 2px 10px rgba(0,0,0,0.02); }
+        .features-face-panel img { width:100%; height:100%; object-fit:cover; }
+        .color-intro-text { font-size:15px; color:var(--text-secondary); margin-bottom:20px; line-height:1.7; }
+        .color-badge { display:inline-flex; align-items:center; gap:6px; background:var(--card-bg); border:1px solid var(--border-color); border-radius:6px; padding:3px 10px 3px 6px; font-size:14px; font-weight:500; vertical-align:middle; }
+        .color-swatch { width:18px; height:18px; border-radius:3px; border:1px solid rgba(0,0,0,0.08); display:inline-block; }
+        .color-split { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:24px; }
+        .color-spectrum-panel { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:32px 24px; box-shadow:0 2px 10px rgba(0,0,0,0.02); position:relative; min-height:360px; }
+        .spectrum-track { position:relative; width:16px; height:280px; margin:0 auto; border-radius:8px; background:linear-gradient(180deg,#b8ddf8 0%,#5b9cd6 10%,#2b7cbf 18%,#1a5fa0 25%,#4c9a52 35%,#3d7a45 42%,#c8a03c 55%,#8b5a1e 70%,#4a3010 82%,#1a0a00 100%); }
+        .spectrum-label-you { position:absolute; right:calc(50% + 14px); transform:translateY(-50%); font-size:11px; font-weight:600; color:var(--text-primary); white-space:nowrap; }
+        .spectrum-user-dot { position:absolute; right:calc(50% - 6px); transform:translateY(-50%); width:6px; height:6px; background:#1e293b; border-radius:50%; }
+        .iris-image-panel { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,0.02); }
+        .iris-image-panel img { width:100%; height:100%; object-fit:cover; max-height:400px; }
+        .lashes-split { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:24px; }
+        .lashes-face-panel { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,0.02); min-height:400px; }
+        .lashes-face-panel img { width:100%; height:100%; object-fit:cover; }
+        .lashes-details { display:flex; flex-direction:column; gap:16px; }
+        .intensity-header { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:28px; text-align:center; box-shadow:0 1px 4px rgba(0,0,0,0.02); }
+        .intensity-title { font-size:15px; font-weight:500; color:var(--text-secondary); margin-bottom:12px; }
+        .intensity-score { font-size:72px; font-weight:700; color:var(--text-primary); line-height:1; letter-spacing:-2px; }
+        .intensity-row { display:flex; justify-content:space-between; align-items:center; margin-top:8px; }
+        .intensity-category { font-size:13px; font-weight:600; color:#d97706; }
+        .intensity-max { font-size:12px; color:var(--text-highlight); }
+        .lash-metrics-card { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:24px; box-shadow:0 1px 4px rgba(0,0,0,0.02); }
+        .lash-metric-label { font-family:monospace; font-size:9px; color:var(--text-highlight); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px; font-weight:600; }
+        .lash-metric-value { font-size:20px; font-weight:500; color:var(--text-primary); margin-bottom:20px; }
+        .lash-slider-wrap { position:relative; height:40px; }
+        .lash-slider-track { position:absolute; bottom:20px; left:0; right:0; height:4px; background:var(--bar-bg); border-radius:2px; }
+        .lash-slider-fill { position:absolute; bottom:20px; left:0; height:4px; background:var(--bar-fill); border-radius:2px; }
+        .lash-slider-dot { position:absolute; bottom:16px; width:8px; height:8px; background:var(--marker-color); border-radius:0; transform:translateX(-50%); }
+        .lash-slider-labels { position:absolute; bottom:0; left:0; right:0; display:flex; justify-content:space-between; font-size:11px; color:var(--text-secondary); font-weight:500; }
+        .undereye-split { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:24px; }
+        .undereye-score-panel { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:32px; box-shadow:0 2px 10px rgba(0,0,0,0.02); }
+        .undereye-title { font-size:20px; font-weight:500; color:var(--text-primary); margin-bottom:20px; }
+        .undereye-score-big { font-size:64px; font-weight:700; color:var(--text-primary); line-height:1; letter-spacing:-2px; margin-bottom:8px; }
+        .undereye-cat { font-size:14px; font-weight:600; color:#d97706; margin-bottom:20px; }
+        .undereye-bars { display:flex; flex-direction:column; gap:14px; }
+        .undereye-bar-row { display:flex; flex-direction:column; gap:4px; }
+        .undereye-bar-label { font-size:11px; font-weight:600; color:var(--text-secondary); }
+        .undereye-bar-track { height:6px; background:var(--bar-bg); border-radius:3px; overflow:hidden; }
+        .undereye-bar-fill { height:100%; background:#455a64; border-radius:3px; transition:width 0.7s ease; }
+        .undereye-image-panel { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,0.02); }
+        .undereye-image-panel img { width:100%; height:100%; object-fit:cover; }
+        .impression-split { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:24px; }
+        .impression-panel { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:32px; box-shadow:0 2px 10px rgba(0,0,0,0.02); }
+        .impression-axis-title { font-size:12px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:1px; margin-bottom:20px; }
+        .impression-axis-track { position:relative; height:8px; background:var(--bar-bg); border-radius:4px; margin:20px 0 8px; }
+        .impression-axis-dot { position:absolute; top:50%; width:14px; height:14px; background:var(--text-primary); border-radius:50%; transform:translate(-50%, -50%); transition:left 0.5s ease; }
+        .impression-axis-labels { display:flex; justify-content:space-between; font-size:11px; color:var(--text-secondary); font-weight:500; }
+        .impression-expl-card { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:24px; box-shadow:0 2px 10px rgba(0,0,0,0.02); }
+        .impression-expl-label { font-family:monospace; font-size:9px; color:var(--text-highlight); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px; font-weight:600; }
+        .impression-expl-text { font-size:13px; color:var(--text-secondary); line-height:1.65; }
+        .metrics-table-card { margin-top:24px; background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:24px; box-shadow:0 2px 10px rgba(0,0,0,0.02); }
+        .metric-row { display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border-radius:8px; background:#f8fafc; border:1px solid var(--border-color); font-size:13px; }
+        .metric-row:hover { background:#f1f5f9; }
+        .metric-label { color:var(--text-secondary); font-weight:500; }
+        .metric-val { color:var(--text-primary); font-weight:600; }
     </style>
 </head>
 <body>
@@ -440,7 +165,6 @@
         <li class="has-children">Features Analysis</li>
         <ul class="sidebar-submenu">
             <li onclick="window.location.href='/'">Dashboard</li>
-            
             <li onclick="window.location.href='/eyebrows'">Eyebrows</li>
             <li class="active" onclick="window.location.href='/eyes'">Eyes</li>
             <li onclick="window.location.href='/nose'">Nose</li>
@@ -453,286 +177,534 @@
             <li onclick="window.location.href='/neck'">Neck</li>
             <li onclick="window.location.href='/ear'">Ear</li>
             <li onclick="window.location.href='/skin'">Skin</li>
-            <li>Skin</li>
         </ul>
         <li class="collapsed">Protocol</li>
     </ul>
 </div>
 
 <div class="main-content">
+<div id="results">
 
-    <div class="header">
-        <h1>An overview of your <span>eyes</span></h1>
-        <p>Your eyes are the windows to your soul, and their characteristics play a crucial role in <strong>facial expression</strong> and aesthetics.</p>
+<!-- SECTION 1: OVERVIEW -->
+<div class="header">
+    <h1>An overview of your <span>eyes</span></h1>
+    <p>Your eyes are the windows to your soul, and their characteristics play a crucial role in <strong>facial expression</strong> and aesthetics.</p>
+</div>
+
+<div class="image-card">
+    <div style="text-align:center;">
+        <p class="image-label">Cropped (Raw Pixels)</p>
+        <img id="rEyeImage" src="" alt="Right Eye" style="width:200px;height:160px;object-fit:contain;">
+        <p class="image-sub">Right Eye</p>
     </div>
-
-    
-
-    <div id="results">
-
-        <div class="image-card">
-            <div style="text-align:center;">
-                <p style="font-size:11px; color:var(--text-highlight); margin-bottom:6px; font-weight:600; letter-spacing:1px; text-transform:uppercase;">Cropped (Raw Pixels)</p>
-                <img id="rEyeImage" src="" alt="Right Eye">
-                <p style="margin-top:6px; font-size:12px; color:var(--text-secondary);">Right Eye</p>
-            </div>
-            <div style="text-align:center;">
-                <p style="font-size:11px; color:var(--text-highlight); margin-bottom:6px; font-weight:600; letter-spacing:1px; text-transform:uppercase;">Cropped (Raw Pixels)</p>
-                <img id="lEyeImage" src="" alt="Left Eye">
-                <p style="margin-top:6px; font-size:12px; color:var(--text-secondary);">Left Eye</p>
-            </div>
-            <div style="text-align:center;">
-                <p style="font-size:11px; color:var(--text-highlight); margin-bottom:6px; font-weight:600; letter-spacing:1px; text-transform:uppercase;">Extracted (White BG)</p>
-                <img id="rEyeImageWB" src="" alt="Right Eye Segmented">
-                <p style="margin-top:6px; font-size:12px; color:var(--text-secondary);">Right Eye (White BG)</p>
-            </div>
-            <div style="text-align:center;">
-                <p style="font-size:11px; color:var(--text-highlight); margin-bottom:6px; font-weight:600; letter-spacing:1px; text-transform:uppercase;">Extracted (White BG)</p>
-                <img id="lEyeImageWB" src="" alt="Left Eye Segmented">
-                <p style="margin-top:6px; font-size:12px; color:var(--text-secondary);">Left Eye (White BG)</p>
-            </div>
-        </div>
-
-        <div class="bottom-split">
-
-            <!-- Left: 2x2 Grid -->
-            <div>
-                <div class="grid-header">Summary of your eyes</div>
-                <div class="metric-grid">
-
-                    <div class="class-card">
-                        <div class="tooltip">
-                            <div class="tooltip-title">EYE TILT</div>
-                            The canthal tilt angle of your palpebral fissure — whether your outer eye corners sit higher or lower than the inner corners.
-                        </div>
-                        <div class="class-label">EYE TILT</div>
-                        <div class="class-value" id="valTilt">--</div>
-                    </div>
-
-                    <div class="class-card">
-                        <div class="tooltip">
-                            <div class="tooltip-title">EYELID EXPOSURE</div>
-                            How much of your upper eyelid skin is visible between the crease and lash line.
-                        </div>
-                        <div class="class-label">EYELID EXPOSURE</div>
-                        <div class="class-value" id="valExposure">--</div>
-                    </div>
-
-                    <div class="class-card">
-                        <div class="tooltip">
-                            <div class="tooltip-title">SCLERA COLOR</div>
-                            The colour and clarity of the visible white area of your eyes.
-                        </div>
-                        <div class="class-label">SCLERA COLOR</div>
-                        <div class="class-value" id="valSclera">--</div>
-                    </div>
-
-                    <div class="class-card">
-                        <div class="tooltip">
-                            <div class="tooltip-title">UNDER EYE HEALTH</div>
-                            The darkness or discolouration below the lower eyelid compared to the surrounding cheek skin.
-                        </div>
-                        <div class="class-label">UNDER EYE HEALTH</div>
-                        <div class="class-value" id="valHealth">--</div>
-                    </div>
-
-                </div>
-            </div>
-
-            <!-- Right: Carousel -->
-            <div>
-                <div class="carousel-container">
-                    <div class="carousel-nav">
-                        <div class="arrow" onclick="prevSlide()">&lt;</div>
-                        <div class="dot active" onclick="goToSlide(0)"></div>
-                        <div class="dot" onclick="goToSlide(1)"></div>
-                        <div class="dot" onclick="goToSlide(2)"></div>
-                        <div class="arrow" onclick="nextSlide()">&gt;</div>
-                    </div>
-
-                    <!-- Slide 1: Lower Eyelid Curvature -->
-                    <div class="range-card active" id="slide-0">
-                        <h3>Lower Eyelid <span class="highlight">Curvature</span></h3>
-                        <p class="desc">Sagitta/chord ratio measuring how curved the lower eyelid contour appears. Higher value = more rounded contour.</p>
-
-                        <div class="range-box">
-                            <div class="range-box-header">
-                                <div>LOWER EYELID CURVATURE</div>
-                                <div>SAGITTA / CHORD RATIO</div>
-                            </div>
-                            <div class="range-value" id="valCurvature">--<span> ratio</span></div>
-                            <div class="slider-container">
-                                <div class="slider-track"></div>
-                                <div class="slider-fill" style="left: 15%; right: 15%;"></div>
-                                <div class="slider-marker" id="markerCurv" style="left: 50%;"></div>
-                                <div class="slider-labels" style="padding: 0 10%;">
-                                    <div>0.0<span> flat</span></div>
-                                    <div>0.25<span> curved</span></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Slide 2: Eye Aspect Ratio -->
-                    <div class="range-card next" id="slide-1">
-                        <h3>Eye Aspect Ratio <span class="highlight">(Almondness)</span></h3>
-                        <p class="desc">EAR = vertical opening / horizontal width. Higher = more open, almond-shaped eye.</p>
-
-                        <div class="range-box">
-                            <div class="range-box-header">
-                                <div>EYE ASPECT RATIO (EAR)</div>
-                                <div>BOTH EYES AVERAGE</div>
-                            </div>
-                            <div class="range-value" id="valEAR">--</div>
-                            <div class="slider-container">
-                                <div class="slider-track"></div>
-                                <div class="slider-fill" style="left: 15%; right: 15%;"></div>
-                                <div class="slider-marker" id="markerEAR" style="left: 50%;"></div>
-                                <div class="slider-labels" style="padding: 0 10%;">
-                                    <div>0.25</div>
-                                    <div>0.45</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Slide 3: Eye Spacing Ratio -->
-                    <div class="range-card next" id="slide-2">
-                        <h3>Eye Spacing <span class="highlight">Ratio</span></h3>
-                        <p class="desc">Interpupillary distance divided by facial width. Closer to 0.5 = eyes spaced at half the face width (classic aesthetic ideal).</p>
-
-                        <div class="range-box">
-                            <div class="range-box-header">
-                                <div>EYE SPACING RATIO (IPD / FACE WIDTH)</div>
-                                <div>LANDMARK-BASED</div>
-                            </div>
-                            <div class="range-value" id="valSpacing">--</div>
-                            <div class="slider-container">
-                                <div class="slider-track"></div>
-                                <div class="slider-fill" style="left: 15%; right: 15%;"></div>
-                                <div class="slider-marker" id="markerSpacing" style="left: 50%;"></div>
-                                <div class="slider-labels" style="padding: 0 10%;">
-                                    <div>0.40</div>
-                                    <div>0.50</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-            </div>
-
-        </div>
-
-        <!-- All Metrics Detail Table -->
-        <div style="margin-top:24px; background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:24px; box-shadow:0 2px 10px rgba(0,0,0,0.02);">
-            <div class="grid-header" style="margin-bottom:16px;">All Eye Metrics</div>
-            <div id="eyeMetricsDetail" style="display:grid; grid-template-columns:1fr 1fr; gap:8px 32px;">
-                <!-- populated by JS -->
-            </div>
-        </div>
-
+    <div style="text-align:center;">
+        <p class="image-label">Cropped (Raw Pixels)</p>
+        <img id="lEyeImage" src="" alt="Left Eye" style="width:200px;height:160px;object-fit:contain;">
+        <p class="image-sub">Left Eye</p>
     </div>
 </div>
 
+<div class="bottom-split" style="margin-bottom:24px;">
+    <div>
+        <div class="grid-header">Summary of your eyes</div>
+        <div class="metric-grid">
+            <div class="class-card">
+                <div class="tooltip"><div class="tooltip-title">EYE TILT</div>Whether your outer eye corners sit higher or lower than the inner corners.</div>
+                <div class="class-label">EYE TILT</div>
+                <div class="class-value" id="valTilt">--</div>
+            </div>
+            <div class="class-card">
+                <div class="tooltip"><div class="tooltip-title">EYELID EXPOSURE</div>How much of your upper eyelid skin is visible between the crease and lash line.</div>
+                <div class="class-label">EYELID EXPOSURE</div>
+                <div class="class-value" id="valExposure">--</div>
+            </div>
+            <div class="class-card">
+                <div class="tooltip"><div class="tooltip-title">SCLERA COLOR</div>The colour and clarity of the visible white area of your eyes.</div>
+                <div class="class-label">SCLERA COLOR</div>
+                <div class="class-value" id="valSclera">--</div>
+            </div>
+            <div class="class-card">
+                <div class="tooltip"><div class="tooltip-title">UNDER EYE HEALTH</div>Darkness or discolouration below the lower eyelid compared to surrounding cheek skin.</div>
+                <div class="class-label">UNDER EYE HEALTH</div>
+                <div class="class-value" id="valHealth">--</div>
+            </div>
+        </div>
+    </div>
+    <div>
+        <div class="carousel-container">
+            <div class="carousel-nav">
+                <div class="arrow" onclick="prevSlide()">&lt;</div>
+                <div class="dot active" onclick="goToSlide(0)"></div>
+                <div class="dot" onclick="goToSlide(1)"></div>
+                <div class="dot" onclick="goToSlide(2)"></div>
+                <div class="arrow" onclick="nextSlide()">&gt;</div>
+            </div>
+            <div class="range-card active" id="slide-0">
+                <h3 id="slide0-title">Eye Spacing <span class="highlight">Ratio</span></h3>
+                <p class="desc" id="slide0-desc">Interpupillary distance divided by facial width.</p>
+                <div class="range-box">
+                    <div class="range-box-header"><div>EYE SPACING RATIO</div><div>IPD / FACE WIDTH</div></div>
+                    <div class="range-value" id="valSpacing">--</div>
+                    <div class="slider-container">
+                        <div class="slider-track"></div>
+                        <div class="slider-fill" style="left:15%;right:15%;"></div>
+                        <div class="slider-marker" id="markerSpacing" style="left:50%;"></div>
+                        <div class="slider-labels" style="padding:0 10%;"><div>0.22</div><div>0.24</div></div>
+                    </div>
+                </div>
+            </div>
+            <div class="range-card next" id="slide-1">
+                <h3>Eye Aspect Ratio <span class="highlight">(Almondness)</span></h3>
+                <p class="desc">EAR = vertical opening / horizontal width. Higher = more open eye.</p>
+                <div class="range-box">
+                    <div class="range-box-header"><div>EYE ASPECT RATIO (EAR)</div><div>BOTH EYES AVERAGE</div></div>
+                    <div class="range-value" id="valEAR">--</div>
+                    <div class="slider-container">
+                        <div class="slider-track"></div>
+                        <div class="slider-fill" style="left:15%;right:15%;"></div>
+                        <div class="slider-marker" id="markerEAR" style="left:50%;"></div>
+                        <div class="slider-labels" style="padding:0 10%;"><div>0.25</div><div>0.45</div></div>
+                    </div>
+                </div>
+            </div>
+            <div class="range-card next" id="slide-2">
+                <h3>Lower Eyelid <span class="highlight">Curvature</span></h3>
+                <p class="desc">Sagitta/chord ratio measuring how curved the lower eyelid contour appears.</p>
+                <div class="range-box">
+                    <div class="range-box-header"><div>LOWER EYELID CURVATURE</div><div>SAGITTA / CHORD</div></div>
+                    <div class="range-value" id="valCurvature">-- <span>ratio</span></div>
+                    <div class="slider-container">
+                        <div class="slider-track"></div>
+                        <div class="slider-fill" style="left:15%;right:15%;"></div>
+                        <div class="slider-marker" id="markerCurv" style="left:50%;"></div>
+                        <div class="slider-labels" style="padding:0 10%;"><div>0.0 <span>flat</span></div><div>0.25 <span>curved</span></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SECTION 2: EYE SHAPE -->
+<div class="section-header">
+    <h2>Your eye <span>shape</span></h2>
+    <p>The shape of your eyes affects how masculine, feminine, alert, or intense your gaze looks.</p>
+</div>
+<div class="eye-shape-split">
+    <div class="eye-face-panel">
+        <img id="eyeShapeFaceImg" src="" alt="Face" style="width:100%;height:100%;object-fit:cover;min-height:400px;">
+    </div>
+    <div class="eye-shape-details">
+        <div class="eye-silhouette-panel">
+            <img id="rEyeSilhouette" src="" alt="Right Eye" style="max-width:140px;max-height:70px;">
+            <img id="lEyeSilhouette" src="" alt="Left Eye" style="max-width:140px;max-height:70px;">
+        </div>
+        <div class="shape-name-block" id="overallShapeName">Almond</div>
+        <div class="shape-cards-grid">
+            <div class="shape-mini-card"><div class="shape-mini-label">UPPER EYELID SHAPE [A]</div><div class="shape-mini-value" id="upperEyelidShape">--</div></div>
+            <div class="shape-mini-card"><div class="shape-mini-label">LOWER EYELID SHAPE [B]</div><div class="shape-mini-value" id="lowerEyelidShape">--</div></div>
+            <div class="shape-mini-card"><div class="shape-mini-label">INNER CORNER [C]</div><div class="shape-mini-value" id="innerCornerShape">--</div></div>
+            <div class="shape-mini-card"><div class="shape-mini-label">OUTER CORNER [D]</div><div class="shape-mini-value" id="outerCornerShape">--</div></div>
+        </div>
+        <div class="explanation-block">
+            <div class="expl-label">EXPLANATION</div>
+            <div class="expl-text" id="eyeShapeExplanation">Your eyes are almond-shaped with curved upper and lower lids, rounded inner corners, and softly rounded outer corners that sit in a subtle positive tilt.</div>
+        </div>
+    </div>
+</div>
+
+<!-- SECTION 3: OTHER VISUAL FEATURES -->
+<div class="section-header"><h2>Other visual <span>features</span> of your eyes</h2></div>
+<div class="visual-features-layout">
+    <div class="features-left">
+        <div class="feature-tile">
+            <img id="featSpacingImg" src="" alt="Eye spacing" style="width:100%;height:180px;object-fit:cover;border-radius:8px;margin-bottom:12px;">
+            <div class="feature-tile-name" id="featSpacingLabel">Normal Eye Spacing</div>
+        </div>
+        <div class="feature-tile">
+            <img id="featScleralImg" src="" alt="Scleral show" style="width:100%;height:180px;object-fit:cover;border-radius:8px;margin-bottom:12px;">
+            <div class="feature-tile-name" id="featScleralLabel">No Scleral Show</div>
+        </div>
+        <div class="feature-tile">
+            <img id="featLimbalImg" src="" alt="Limbal ring" style="width:100%;height:180px;object-fit:cover;border-radius:8px;margin-bottom:12px;">
+            <div class="feature-tile-name" id="featLimbalLabel">Visible Limbal Ring</div>
+        </div>
+        <div class="feature-tile">
+            <img id="featEpicanthicImg" src="" alt="Epicanthic fold" style="width:100%;height:180px;object-fit:cover;border-radius:8px;margin-bottom:12px;">
+            <div class="feature-tile-name" id="featEpicanthicLabel">No Epicanthic Fold</div>
+        </div>
+    </div>
+    <div>
+        <div class="features-explanation">
+            <div class="expl-label">EXPLANATION</div>
+            <div class="expl-text" id="visualFeaturesExplanation">Your lower lids cover the inferior iris edge so you do not display white below the iris, which keeps your eyes looking supported rather than widened or strained.</div>
+        </div>
+    </div>
+</div>
+
+<!-- SECTION 4: COLOR -->
+<div class="section-header"><h2>Your eye <span>color</span></h2></div>
+<p class="color-intro-text">
+    Your iris color is
+    <span class="color-badge"><span class="color-swatch" id="irisColorSwatch" style="background:#7eb8d4;"></span><span id="irisColorName">Grayish Blue</span></span>
+    with a defined
+    <span class="color-badge"><span class="color-swatch" id="limbalColorSwatch" style="background:#1a1a1a;"></span><span id="limbalColorName">Onyx Black</span></span>
+    limbal ring. You have a slightly
+    <span class="color-badge"><span class="color-swatch" id="scleraColorSwatch" style="background:#f5f5f0;"></span><span id="scleraColorNameBadge">Off-White</span></span>
+    sclera.
+</p>
+<div class="color-split">
+    <div class="color-spectrum-panel">
+        <div style="position:relative;display:flex;justify-content:center;align-items:flex-start;padding-top:20px;height:320px;">
+            <div class="spectrum-track"></div>
+            <div class="spectrum-label-you" id="spectrumUserLabel" style="top:10%;">&#9632; GRAYISH BLUE</div>
+            <span style="position:absolute;left:calc(50% + 18px);top:10%;font-size:11px;font-weight:600;color:var(--text-primary);">YOU</span>
+            <div class="spectrum-user-dot" id="spectrumUserDot" style="top:10%;"></div>
+            <div style="position:absolute;left:calc(50% + 18px);top:35%;font-size:11px;color:var(--text-secondary);">Green</div>
+            <div style="position:absolute;left:calc(50% + 18px);top:55%;font-size:11px;color:var(--text-secondary);">Brown</div>
+            <div style="position:absolute;left:calc(50% + 18px);top:78%;font-size:11px;color:var(--text-secondary);">Other</div>
+        </div>
+    </div>
+    <div class="iris-image-panel">
+        <img id="irisCloseupImg" src="" alt="Iris close-up" style="width:100%;max-height:400px;object-fit:cover;">
+    </div>
+</div>
+
+<!-- SECTION 5: LASHES -->
+<div class="section-header">
+    <h2>A look at your <span>lashes</span></h2>
+    <p>Lash length, color, and density directly affect eye expressiveness and <strong>gaze intensity</strong>.</p>
+</div>
+<div class="lashes-split">
+    <div class="lashes-face-panel">
+        <img id="lashesFaceImg" src="" alt="Face" style="width:100%;height:100%;object-fit:cover;min-height:400px;">
+    </div>
+    <div class="lashes-details">
+        <div class="intensity-header">
+            <div class="intensity-title">Eyelash Intensity</div>
+            <div class="intensity-score" id="lashScore">68</div>
+            <div class="intensity-row">
+                <span class="intensity-category" id="lashCategory">Medium</span>
+                <span class="intensity-max">/100</span>
+            </div>
+        </div>
+        <div class="lash-metrics-card">
+            <div class="lash-metric-label">EYELASH INTENSITY</div>
+            <div class="lash-metric-value" id="lashIntensityClass">Medium</div>
+            <div class="lash-slider-wrap">
+                <div class="lash-slider-track"></div>
+                <div class="lash-slider-fill" id="lashSliderFill" style="width:68%;"></div>
+                <div class="lash-slider-dot" id="lashSliderDot" style="left:68%;"></div>
+                <div class="lash-slider-labels"><span>Faint</span><span>Intense</span></div>
+            </div>
+        </div>
+        <div class="explanation-block">
+            <div class="expl-label">EXPLANATION</div>
+            <div class="expl-text" id="lashExplanation">Your lashes are moderately long, dense, and dark which frames the upper eyelid clearly and gives your gaze a defined but not overly stylized outline.</div>
+        </div>
+    </div>
+</div>
+
+<!-- SECTION 6: UNDEREYE -->
+<div class="section-header">
+    <h2>Your <span>undereye</span> region</h2>
+    <p>The undereye area reveals signs of aging, fatigue, and vascular activity that contribute to your overall eye appearance.</p>
+</div>
+<div class="undereye-split">
+    <div class="undereye-score-panel">
+        <div class="undereye-title">Undereye Score</div>
+        <div class="undereye-score-big" id="undereyeScore">68</div>
+        <div class="undereye-cat" id="undereyeCategory">Good</div>
+        <div class="undereye-bars">
+            <div class="undereye-bar-row">
+                <div class="undereye-bar-label">HYPERPIGMENTATION</div>
+                <div class="undereye-bar-track"><div class="undereye-bar-fill" id="barHyper" style="width:30%;"></div></div>
+            </div>
+            <div class="undereye-bar-row">
+                <div class="undereye-bar-label">PUFFINESS</div>
+                <div class="undereye-bar-track"><div class="undereye-bar-fill" id="barPuff" style="width:25%;"></div></div>
+            </div>
+            <div class="undereye-bar-row">
+                <div class="undereye-bar-label">HOLLOWNESS</div>
+                <div class="undereye-bar-track"><div class="undereye-bar-fill" id="barHollow" style="width:20%;"></div></div>
+            </div>
+            <div class="undereye-bar-row">
+                <div class="undereye-bar-label">VASCULARITY</div>
+                <div class="undereye-bar-track"><div class="undereye-bar-fill" id="barVasc" style="width:35%;"></div></div>
+            </div>
+        </div>
+        <div style="margin-top:20px;" class="explanation-block">
+            <div class="expl-label">EXPLANATION</div>
+            <div class="expl-text" id="undereyeExplanation">Your under-eye region is generally well preserved with only mild shadowing, contouring, and vascular visibility which keeps the area looking rested for your age.</div>
+        </div>
+    </div>
+    <div class="undereye-image-panel">
+        <img id="undereyeImg" src="" alt="Undereye" style="width:100%;max-height:500px;object-fit:cover;">
+    </div>
+</div>
+
+<!-- SECTION 7: EYE IMPRESSION -->
+<div class="section-header">
+    <h2>Your eye <span>impression</span></h2>
+    <p>How your eyes are perceived in terms of masculine vs feminine and mild vs piercing on the aesthetic spectrum.</p>
+</div>
+<div class="impression-split" style="grid-template-columns: 1fr 1fr;">
+    <div style="background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,0.02);">
+        <img id="impressionFaceImg" src="" alt="Face" style="width:100%;height:100%;object-fit:cover;min-height:400px;">
+    </div>
+    <div style="display:flex; flex-direction:column; gap:24px;">
+        <div class="impression-panel" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px;">
+            <div style="font-size:11px; font-weight:600; color:var(--text-secondary); margin-bottom:12px; letter-spacing:1px;">MILD</div>
+            <div style="display:flex; align-items:center; gap:16px;">
+                <div style="font-size:11px; font-weight:600; color:var(--text-secondary); letter-spacing:1px; writing-mode:vertical-rl; transform:rotate(180deg);">FEMININE</div>
+                
+                <div style="position:relative; width:260px; height:260px;">
+                    <!-- The Grid Container -->
+                    <div id="impressionGrid" style="display:grid; grid-template-columns:repeat(10, 1fr); grid-template-rows:repeat(10, 1fr); gap:6px; width:100%; height:100%;">
+                        <!-- Cells will be injected here by JS -->
+                    </div>
+                    
+                    <!-- Axes -->
+                    <div style="position:absolute; top:50%; left:-10px; right:-10px; border-top:1px dashed #cbd5e1; transform:translateY(-50%); pointer-events:none;"></div>
+                    <div style="position:absolute; left:50%; top:-10px; bottom:-10px; border-left:1px dashed #cbd5e1; transform:translateX(-50%); pointer-events:none;"></div>
+                    
+                    <!-- Arrows -->
+                    <div style="position:absolute; top:50%; left:-14px; transform:translateY(-50%) rotate(180deg); width:0; height:0; border-top:4px solid transparent; border-bottom:4px solid transparent; border-left:5px solid #cbd5e1;"></div>
+                    <div style="position:absolute; top:50%; right:-14px; transform:translateY(-50%); width:0; height:0; border-top:4px solid transparent; border-bottom:4px solid transparent; border-left:5px solid #cbd5e1;"></div>
+                    <div style="position:absolute; left:50%; top:-14px; transform:translateX(-50%) rotate(-90deg); width:0; height:0; border-top:4px solid transparent; border-bottom:4px solid transparent; border-left:5px solid #cbd5e1;"></div>
+                    <div style="position:absolute; left:50%; bottom:-14px; transform:translateX(-50%) rotate(90deg); width:0; height:0; border-top:4px solid transparent; border-bottom:4px solid transparent; border-left:5px solid #cbd5e1;"></div>
+                </div>
+
+                <div style="font-size:11px; font-weight:600; color:var(--text-secondary); letter-spacing:1px; writing-mode:vertical-rl;">MASCULINE</div>
+            </div>
+            <div style="font-size:11px; font-weight:600; color:var(--text-secondary); margin-top:12px; letter-spacing:1px;">PIERCING</div>
+        </div>
+        <div class="impression-expl-card">
+            <div class="impression-expl-label">EXPLANATION</div>
+            <div class="impression-expl-text" id="impressionExplanation">Your eyes combine angular geometry with a lower brow ridge, leaning towards a masculine aesthetic. The slightly narrower vertical aperture creates a sharper, more piercing gaze.</div>
+        </div>
+    </div>
+</div>
+
+<!-- METRICS TABLE -->
+<div class="metrics-table-card">
+    <div class="grid-header" style="margin-bottom:16px;">All Eye Metrics</div>
+    <div id="eyeMetricsDetail" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 32px;"></div>
+</div>
+
+</div><!-- /results -->
+</div><!-- /main-content -->
 
 <script>
-    let currentSlide = 0;
-    const totalSlides = 3;
+let currentSlide = 0;
+const totalSlides = 3;
+function updateCarousel() {
+    for (let i = 0; i < totalSlides; i++) {
+        const s = document.getElementById('slide-' + i);
+        s.classList.remove('active','prev','next');
+        if (i === currentSlide) s.classList.add('active');
+        else if (i < currentSlide) s.classList.add('prev');
+        else s.classList.add('next');
+    }
+    document.querySelectorAll('.carousel-nav .dot').forEach(function(d,i){ d.classList.toggle('active', i===currentSlide); });
+}
+function nextSlide(){ currentSlide=(currentSlide+1)%totalSlides; updateCarousel(); }
+function prevSlide(){ currentSlide=(currentSlide-1+totalSlides)%totalSlides; updateCarousel(); }
+function goToSlide(i){ currentSlide=i; updateCarousel(); }
 
-    function updateCarousel() {
-        for (let i = 0; i < totalSlides; i++) {
-            const slide = document.getElementById(`slide-${i}`);
-            slide.classList.remove('active', 'prev', 'next');
-            if (i === currentSlide) slide.classList.add('active');
-            else if (i < currentSlide) slide.classList.add('prev');
-            else slide.classList.add('next');
-        }
-        const dots = document.querySelectorAll('.carousel-nav .dot');
-        dots.forEach((d, i) => d.classList.toggle('active', i === currentSlide));
+function setVal(id,v){ var el=document.getElementById(id); if(el) el.innerText=(v!==undefined&&v!==null&&v!=='')?v:'N/A'; }
+function setSrc(id,src){ var el=document.getElementById(id); if(el&&src) el.src=src.startsWith('data:') ? src : 'data:image/jpeg;base64,'+src; }
+
+function mapTilt(raw){
+    if(!raw||raw==='N/A') return 'N/A';
+    var r=raw.toLowerCase();
+    if(r.indexOf('positive')>=0||r.indexOf('hunter')>=0) return 'Positive';
+    if(r.indexOf('negative')>=0||r.indexOf('down')>=0) return 'Negative';
+    return 'Neutral';
+}
+function mapExp(raw){
+    if(!raw||raw==='N/A') return 'N/A';
+    var r=raw.toLowerCase();
+    if(r.indexOf('high')>=0) return 'High';
+    if(r.indexOf('low')>=0) return 'Low';
+    return 'Moderate';
+}
+function scoreToPercent(score,min,max){
+    var pct=((parseFloat(score)-min)/(max-min))*100;
+    return Math.max(0,Math.min(100,pct));
+}
+
+window.addEventListener('DOMContentLoaded', function(){
+    var dataStr = sessionStorage.getItem('faceData_eyes');
+    if(!dataStr){
+        var banner=document.createElement('div');
+        banner.innerHTML='<div style="background:#94a3b8;color:white;padding:15px;text-align:center;border-radius:8px;margin-bottom:20px;font-weight:bold;">No Face Data Found! Please go to Dashboard and upload your image first.</div>';
+        document.querySelector('.header').after(banner);
+        return;
+    }
+    var data=JSON.parse(dataStr);
+    if(data.error){ alert(data.error); return; }
+
+    // SECTION 1: Overview
+    setSrc('rEyeImage', data.r_eye_image);
+    setSrc('lEyeImage', data.l_eye_image);
+    setVal('valTilt', mapTilt(data.tilt_class));
+    setVal('valExposure', mapExp(data.exposure_class));
+    setVal('valSclera', data.sclera_class||'Off-White');
+    setVal('valHealth', data.health_class||'Moderate');
+
+    var spc=parseFloat(data.eye_spacing_ratio)||0;
+    var ear=parseFloat(data.avg_ear)||0;
+    var curv=parseFloat(data.avg_lower_eyelid_curvature)||0;
+    setVal('valSpacing', data.eye_spacing_ratio||'N/A');
+    setVal('valEAR', data.avg_ear||'N/A');
+    document.getElementById('valCurvature').innerHTML=(data.avg_lower_eyelid_curvature||'N/A')+'<span> ratio</span>';
+
+    var sP=15+((spc-0.22)/(0.24-0.22))*70;
+    document.getElementById('markerSpacing').style.left=Math.max(5,Math.min(95,sP))+'%';
+    var eP=15+((ear-0.25)/(0.45-0.25))*70;
+    document.getElementById('markerEAR').style.left=Math.max(5,Math.min(95,eP))+'%';
+    var cP=15+((curv-0.0)/(0.25-0.0))*70;
+    document.getElementById('markerCurv').style.left=Math.max(5,Math.min(95,cP))+'%';
+
+    if(spc>0.24){
+        document.getElementById('slide0-title').innerHTML='Noticeably <span class="highlight">higher</span> than the usual spacing range';
+        document.getElementById('slide0-desc').textContent='You have relatively wider spacing between the eyes.';
+    } else if(spc<0.22){
+        document.getElementById('slide0-title').innerHTML='Noticeably <span class="highlight">lower</span> than the usual spacing range';
+        document.getElementById('slide0-desc').textContent='You have relatively closer-set eyes, which can give a more intense gaze.';
     }
 
-    function nextSlide() { currentSlide = (currentSlide + 1) % totalSlides; updateCarousel(); }
-    function prevSlide() { currentSlide = (currentSlide - 1 + totalSlides) % totalSlides; updateCarousel(); }
-    function goToSlide(i) { currentSlide = i; updateCarousel(); }
+    // SECTION 2: Eye Shape
+    setVal('overallShapeName', data.eye_shape_overall||data.overall_eye_shape||'Almond');
+    setVal('upperEyelidShape', data.upper_eyelid_shape||'Curved');
+    setVal('lowerEyelidShape', data.lower_eyelid_shape||'Curved');
+    setVal('innerCornerShape', data.inner_corner_shape||'Rounded');
+    setVal('outerCornerShape', data.outer_corner_shape||'Rounded');
+    setVal('eyeShapeExplanation', data.eye_shape_explanation||'Your eyes are almond-shaped with curved upper and lower lids, rounded inner corners, and softly rounded outer corners that sit in a subtle positive tilt.');
+    setSrc('eyeShapeFaceImg', data.eye_shape_image||data.full_face_image||data.face_image||data.r_eye_image_white||data.r_eye_image);
+    setSrc('rEyeSilhouette', data.r_eye_image_white||data.r_eye_image);
+    setSrc('lEyeSilhouette', data.l_eye_image_white||data.l_eye_image);
 
-    function setVal(id, v) {
-        const el = document.getElementById(id);
-        if (el) el.innerText = (v !== undefined && v !== null && v !== '') ? v : 'N/A';
+    // SECTION 3: Other Visual Features
+    setVal('featSpacingLabel', data.eye_spacing_feature||'Normal Eye Spacing');
+    setVal('featScleralLabel', data.scleral_show_feature||'No Scleral Show');
+    setVal('featLimbalLabel', data.limbal_ring_feature||'Visible Limbal Ring');
+    setVal('featEpicanthicLabel', data.epicanthic_feature||'No Epicanthic Fold');
+    setVal('visualFeaturesExplanation', data.visual_features_explanation||'Your lower lids cover the inferior iris edge so you do not display white below the iris, which keeps your eyes looking supported rather than widened or strained.');
+    setSrc('featSpacingImg', data.eye_spacing_image||data.r_eye_image);
+    setSrc('featScleralImg', data.scleral_show_image||data.r_eye_image);
+    setSrc('featLimbalImg', data.limbal_ring_image||data.r_eye_image);
+    setSrc('featEpicanthicImg', data.epicanthic_image||data.r_eye_image);
+
+    // SECTION 4: Color
+    var irisColor=data.iris_color_name||'Grayish Blue';
+    var irisHex=data.iris_color_hex||'#7eb8d4';
+    var limbalColor=data.limbal_color_name||'Onyx Black';
+    var limbalHex=data.limbal_color_hex||'#1a1a1a';
+    var scleraColor=data.sclera_color_name||'Off-White';
+    var scleraHex=data.sclera_color_hex||'#f5f5f0';
+    setVal('irisColorName', irisColor);
+    setVal('limbalColorName', limbalColor);
+    setVal('scleraColorNameBadge', scleraColor);
+    document.getElementById('irisColorSwatch').style.background=irisHex;
+    document.getElementById('limbalColorSwatch').style.background=limbalHex;
+    document.getElementById('scleraColorSwatch').style.background=scleraHex;
+
+    var irisCatLower=irisColor.toLowerCase();
+    var spectrumPct=10;
+    if(irisCatLower.indexOf('green')>=0) spectrumPct=38;
+    else if(irisCatLower.indexOf('hazel')>=0) spectrumPct=48;
+    else if(irisCatLower.indexOf('amber')>=0) spectrumPct=58;
+    else if(irisCatLower.indexOf('brown')>=0||irisCatLower.indexOf('dark')>=0) spectrumPct=65;
+    else if(irisCatLower.indexOf('black')>=0) spectrumPct=82;
+    else if(irisCatLower.indexOf('gray')>=0||irisCatLower.indexOf('grey')>=0) spectrumPct=15;
+    document.getElementById('spectrumUserDot').style.top=spectrumPct+'%';
+    document.getElementById('spectrumUserLabel').style.top=spectrumPct+'%';
+    document.getElementById('spectrumUserLabel').textContent='\u25a0 '+irisColor.toUpperCase();
+    setSrc('irisCloseupImg', data.iris_closeup_image||data.r_eye_image||data.l_eye_image);
+
+    // SECTION 5: Lashes
+    var lashScore=parseInt(data.lash_intensity_score)||68;
+    var lashCat=data.lash_intensity_category||'Medium';
+    var lashExpl=data.lash_explanation||'Your lashes are moderately long, dense, and dark which frames the upper eyelid clearly and gives your gaze a defined but not overly stylized outline.';
+    setVal('lashScore', lashScore);
+    setVal('lashCategory', lashCat);
+    setVal('lashIntensityClass', lashCat);
+    setVal('lashExplanation', lashExpl);
+    document.getElementById('lashSliderFill').style.width=lashScore+'%';
+    document.getElementById('lashSliderDot').style.left=lashScore+'%';
+    setSrc('lashesFaceImg', data.full_face_image||data.face_image||data.r_eye_image_white||data.r_eye_image);
+
+    // SECTION 6: Undereye
+    var ueScore=parseInt(data.undereye_score)||68;
+    var ueCat=data.undereye_category||'Good';
+    var ueExpl=data.undereye_explanation||'Your under-eye region is generally well preserved with only mild shadowing.';
+    var hyper=Math.min(100,parseInt(data.undereye_hyper)||30);
+    var puff=Math.min(100,parseInt(data.undereye_puff)||25);
+    var hollow=Math.min(100,parseInt(data.undereye_hollow)||20);
+    var vasc=Math.min(100,parseInt(data.undereye_vasc)||35);
+    setVal('undereyeScore', ueScore);
+    setVal('undereyeCategory', ueCat);
+    setVal('undereyeExplanation', ueExpl);
+    document.getElementById('barHyper').style.width=hyper+'%';
+    document.getElementById('barPuff').style.width=puff+'%';
+    document.getElementById('barHollow').style.width=hollow+'%';
+    document.getElementById('barVasc').style.width=vasc+'%';
+    setSrc('undereyeImg', data.full_face_image||data.undereye_image||data.r_eye_image||data.l_eye_image);
+
+    // SECTION 7: Eye Impression
+    var mascScore=parseFloat(data.impression_masc_score)||1;
+    var piercingScore=parseFloat(data.impression_piercing_score)||-2;
+    var impressionExpl=data.impression_explanation||'Your eyes combine angular geometry with a lower brow ridge, leaning towards a masculine aesthetic. The slightly narrower vertical aperture creates a sharper, more piercing gaze.';
+    
+    // Map scores [-5, 5] to a 10x10 grid (0-9)
+    var col = Math.floor(((mascScore + 5) / 10) * 10);
+    col = Math.max(0, Math.min(9, col));
+    var row = Math.floor(((piercingScore + 5) / 10) * 10);
+    row = Math.max(0, Math.min(9, row));
+    
+    var activeIndex = row * 10 + col;
+    var gridHTML = '';
+    for(var i=0; i<100; i++) {
+        var isTarget = (i === activeIndex);
+        var bg = isTarget ? '#334155' : '#f1f5f9';
+        gridHTML += '<div style="background:'+bg+'; border-radius:4px; width:100%; height:100%;"></div>';
     }
+    document.getElementById('impressionGrid').innerHTML = gridHTML;
+    
+    setVal('impressionExplanation', impressionExpl);
+    setSrc('impressionFaceImg', data.full_face_image||data.face_image||data.r_eye_image_white||data.r_eye_image);
 
-    window.addEventListener('DOMContentLoaded', () => {
-        const dataStr = sessionStorage.getItem('faceData_eyes');
-
-        if (!dataStr) {
-            const banner = document.createElement('div');
-            banner.innerHTML = '<div style="background:var(--text-highlight); color:white; padding:15px; text-align:center; border-radius:8px; margin-bottom:20px; font-weight:bold;">No Face Data Found! Please click Dashboard on the left to upload your image first.</div>';
-            document.querySelector('.header').after(banner);
-            return;
-        }
-
-        const data = JSON.parse(dataStr);
-        if (data.error) { alert(data.error); return; }
-
-        const resultsDiv = document.getElementById('results');
-        if (resultsDiv) resultsDiv.style.display = 'block';
-
-        // ── Summary cards ──
-        setVal('valTilt',     data.tilt_class);
-        setVal('valExposure', data.exposure_class);
-        setVal('valSclera',   data.sclera_class);
-        setVal('valHealth',   data.health_class);
-
-        // ── Carousel values ──
-        const curv = parseFloat(data.curvature) || 0;
-        const ear  = parseFloat(data.ear) || 0;
-        const spc  = parseFloat(data.spacing_ratio) || 0;
-
-        document.getElementById('valCurvature').innerHTML = `${data.avg_lower_eyelid_curvature || data.curvature || 'N/A'}<span> ratio</span>`;
-        document.getElementById('valEAR').innerHTML       = `${data.avg_ear || data.ear || 'N/A'}`;
-        document.getElementById('valSpacing').innerHTML   = `${data.eye_spacing_ratio || data.spacing_ratio || 'N/A'}`;
-
-        // slider markers
-        let cP = 15 + ((curv - 0.0) / (0.25 - 0.0)) * 70;
-        document.getElementById('markerCurv').style.left = `${Math.max(5, Math.min(95, cP))}%`;
-        let eP = 15 + ((ear - 0.25) / (0.45 - 0.25)) * 70;
-        document.getElementById('markerEAR').style.left = `${Math.max(5, Math.min(95, eP))}%`;
-        let sP = 15 + ((spc - 0.40) / (0.50 - 0.40)) * 70;
-        document.getElementById('markerSpacing').style.left = `${Math.max(5, Math.min(95, sP))}%`;
-
-        // ── Images: show BOTH cropped and white-bg ──
-        const rImgEl = document.getElementById('rEyeImage');
-        const lImgEl = document.getElementById('lEyeImage');
-        if (rImgEl) rImgEl.src = data.r_eye_image || '';
-        if (lImgEl) lImgEl.src = data.l_eye_image || '';
-
-        // ── Inject extra metrics table if detail container exists ──
-        const detailEl = document.getElementById('eyeMetricsDetail');
-        if (detailEl) {
-            const rows = [
-                ['Right Eye Aspect Ratio (EAR)',    data.right_eye_aspect_ratio],
-                ['Left Eye Aspect Ratio (EAR)',     data.left_eye_aspect_ratio],
-                ['Avg EAR',                         data.avg_ear],
-                ['Eye Spacing Ratio (IPD/Width)',   data.eye_spacing_ratio],
-                ['Right Lower Eyelid Curvature',    data.right_lower_eyelid_curvature],
-                ['Left Lower Eyelid Curvature',     data.left_lower_eyelid_curvature],
-                ['Avg Lower Eyelid Curvature',      data.avg_lower_eyelid_curvature],
-                ['Eye Tilt Classification',         data.tilt_class],
-                ['Eyelid Exposure Classification',  data.exposure_class],
-            ];
-            detailEl.innerHTML = rows.map(([label, val]) =>
-                `<div class="metric-row"><span class="metric-label">${label}</span><span class="metric-val">${val || 'N/A'}</span></div>`
-            ).join('');
-        }
-
-        // white-bg image toggle
-        const wbR = document.getElementById('rEyeImageWB');
-        const wbL = document.getElementById('lEyeImageWB');
-        if (wbR && data.r_eye_image_white) wbR.src = data.r_eye_image_white;
-        if (wbL && data.l_eye_image_white) wbL.src = data.l_eye_image_white;
-    });
+    // Metrics table
+    var detailEl=document.getElementById('eyeMetricsDetail');
+    if(detailEl){
+        var rows=[
+            ['Right Eye Aspect Ratio (EAR)',data.right_eye_aspect_ratio],
+            ['Left Eye Aspect Ratio (EAR)',data.left_eye_aspect_ratio],
+            ['Avg EAR',data.avg_ear],
+            ['Eye Spacing Ratio (IPD/Width)',data.eye_spacing_ratio],
+            ['Right Lower Eyelid Curvature',data.right_lower_eyelid_curvature],
+            ['Left Lower Eyelid Curvature',data.left_lower_eyelid_curvature],
+            ['Avg Lower Eyelid Curvature',data.avg_lower_eyelid_curvature],
+            ['Eye Tilt Classification',data.tilt_class],
+            ['Eyelid Exposure Classification',data.exposure_class],
+            ['Eye Shape (Overall)',data.eye_shape_overall||data.overall_eye_shape],
+            ['Upper Eyelid Shape',data.upper_eyelid_shape],
+            ['Lower Eyelid Shape',data.lower_eyelid_shape],
+            ['Inner Corner Shape',data.inner_corner_shape],
+            ['Outer Corner Shape',data.outer_corner_shape],
+            ['Iris Color',irisColor],
+            ['Limbal Ring Color',limbalColor],
+            ['Sclera Color',scleraColor],
+            ['Lash Intensity Score',lashScore+'/100'],
+            ['Lash Category',lashCat],
+            ['Undereye Score',ueScore+'/100'],
+            ['Undereye Category',ueCat]
+        ];
+        detailEl.innerHTML=rows.map(function(r){ return '<div class="metric-row"><span class="metric-label">'+r[0]+'</span><span class="metric-val">'+(r[1]||'N/A')+'</span></div>'; }).join('');
+    }
+});
 </script>
-
 </body>
 </html>
-

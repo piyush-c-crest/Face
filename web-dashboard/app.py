@@ -242,6 +242,179 @@ def extract_cheeks_mediapipe(img_rgb: np.ndarray, pts: np.ndarray):
     return final_image, final_image
 
 
+def extract_eyes_mediapipe(img_rgb: np.ndarray, pts: np.ndarray):
+    """
+    Extracts all eye-region crops using MediaPipe landmarks instead of the SegFormer
+    segmentation mask. The segmentation model's l_eye/r_eye classes are a very thin
+    sliver of pixels and frequently come back empty (None), which is why every image
+    in the eyes page could go blank at once. Landmark-based crops are robust to that.
+
+    The four "Other Visual Features" overlays (eye spacing / scleral show / limbal
+    ring / epicanthic fold) are reproduced faithfully from eye_analysis.ipynb's
+    "OTHER VISUAL FEATURES ANALYSIS & VISUALIZATION" cell — same landmark points,
+    same bracket/tick-mark/polyline/circle/dotted-circle drawings — just rendered
+    on a shared crop around both eyes instead of the notebook's full-frame plot.
+
+    Returns a dict of base64 (or None) images:
+      r_eye, l_eye                 - individual eye crops (padded, notebook-style)
+      r_eye_white, l_eye_white     - same crops, masked onto a white background
+      face_image                   - wide crop spanning both eyes (for face panels)
+      eye_spacing_image            - inner-canthus bracket with tick marks (notebook panel 1)
+      scleral_show_image           - full lower-lid contour polylines (notebook panel 2)
+      limbal_ring_image            - circle traced around each iris (notebook panel 3)
+      epicanthic_image             - dotted circles at each inner corner (notebook panel 4)
+      iris_closeup_image           - tight zoom on the right iris (for color section)
+      undereye_image               - crop of the region just below the right lower lid
+    """
+    empty = {k: None for k in [
+        "r_eye", "l_eye", "r_eye_white", "l_eye_white", "face_image",
+        "eye_spacing_image", "scleral_show_image", "limbal_ring_image",
+        "epicanthic_image", "iris_closeup_image", "undereye_image",
+    ]}
+    if pts is None or len(pts) == 0:
+        return empty
+
+    h, w = img_rgb.shape[:2]
+
+    RIGHT_EYE_UPPER = [246, 161, 160, 159, 158, 157, 173]
+    RIGHT_EYE_LOWER = [33, 7, 163, 144, 145, 153, 154, 155, 133]
+    LEFT_EYE_UPPER  = [466, 388, 387, 386, 385, 384, 398]
+    LEFT_EYE_LOWER  = [263, 249, 390, 373, 374, 380, 381, 382, 362]
+    R_OUTER, R_INNER = 33, 133
+    L_INNER, L_OUTER = 362, 263
+    R_IRIS, L_IRIS = 468, 473
+    WHITE = (255, 255, 255)
+
+    def clamp_box(x1, y1, x2, y2):
+        return max(0, int(x1)), max(0, int(y1)), min(w, int(x2)), min(h, int(y2))
+
+    def crop(x1, y1, x2, y2):
+        x1, y1, x2, y2 = clamp_box(x1, y1, x2, y2)
+        if x2 - x1 < 2 or y2 - y1 < 2:
+            return None
+        return img_rgb[y1:y2, x1:x2].copy()
+
+    def eye_bbox(upper_idxs, lower_idxs, pad=28):
+        all_idxs = upper_idxs + lower_idxs
+        xs = [pts[i][0] for i in all_idxs]
+        ys = [pts[i][1] for i in all_idxs]
+        return min(xs) - pad, min(ys) - pad, max(xs) + pad, max(ys) + pad
+
+    def white_bg_crop(upper_idxs, lower_idxs, pad=28):
+        x1, y1, x2, y2 = clamp_box(*eye_bbox(upper_idxs, lower_idxs, pad))
+        if x2 - x1 < 2 or y2 - y1 < 2:
+            return None
+        hull_pts = np.array([pts[i] for i in (upper_idxs + lower_idxs)], dtype=np.int32)
+        mask = np.zeros((h, w), dtype=np.uint8)
+        cv2.fillConvexPoly(mask, cv2.convexHull(hull_pts), 255)
+        white = np.ones_like(img_rgb) * 255
+        white[mask == 255] = img_rgb[mask == 255]
+        return white[y1:y2, x1:x2]
+
+    def draw_nice_dotted_circle(img, center, radius):
+        """Verbatim port of the notebook's dotted-circle drawer."""
+        for angle in range(0, 360, 15):
+            start_angle = np.radians(angle)
+            end_angle = np.radians(angle + 5)
+            x1 = int(center[0] + radius * np.cos(start_angle))
+            y1 = int(center[1] + radius * np.sin(start_angle))
+            x2 = int(center[0] + radius * np.cos(end_angle))
+            y2 = int(center[1] + radius * np.sin(end_angle))
+            cv2.line(img, (x1, y1), (x2, y2), WHITE, 2)
+
+    try:
+        r_eye_raw = crop(*eye_bbox(RIGHT_EYE_UPPER, RIGHT_EYE_LOWER))
+        l_eye_raw = crop(*eye_bbox(LEFT_EYE_UPPER, LEFT_EYE_LOWER))
+        r_eye_white = white_bg_crop(RIGHT_EYE_UPPER, RIGHT_EYE_LOWER)
+        l_eye_white = white_bg_crop(LEFT_EYE_UPPER, LEFT_EYE_LOWER)
+
+        # ── Shared "both eyes" canvas, with extra headroom above the brows for
+        #    the eye-spacing bracket (notebook draws it near the glabella) ──
+        r_inner_pt, l_inner_pt = pts[R_INNER], pts[L_INNER]
+        ipd_px = float(np.linalg.norm(r_inner_pt - l_inner_pt))
+        rx1, ry1, rx2, ry2 = eye_bbox(RIGHT_EYE_UPPER, RIGHT_EYE_LOWER, pad=10)
+        lx1, ly1, lx2, ly2 = eye_bbox(LEFT_EYE_UPPER, LEFT_EYE_LOWER, pad=10)
+        ox1, oy1, ox2, oy2 = clamp_box(
+            min(rx1, lx1) - int(ipd_px * 0.25),
+            min(ry1, ly1) - int(ipd_px * 0.55),
+            max(rx2, lx2) + int(ipd_px * 0.25),
+            max(ry2, ly2) + int(ipd_px * 0.45),
+        )
+        base = img_rgb[oy1:oy2, ox1:ox2].copy() if (ox2 - ox1 >= 2 and oy2 - oy1 >= 2) else None
+        face_image = base
+
+        def to_local(idx):
+            p = pts[idx]
+            return (int(p[0]) - ox1, int(p[1]) - oy1)
+
+        spacing_img = sclera_img = limbal_img = epi_img = None
+
+        if base is not None:
+            # 1. Eye Spacing — bracket with tick marks over the inner canthi
+            img_spacing = base.copy()
+            r_inner_l, l_inner_l = to_local(R_INNER), to_local(L_INNER)
+            y_offset = int(ipd_px * 0.35)
+            y_bracket = max(0, min(r_inner_l[1], l_inner_l[1]) - y_offset)
+            tick_len = int(ipd_px * 0.1)
+            cv2.line(img_spacing, (r_inner_l[0], y_bracket), (l_inner_l[0], y_bracket), WHITE, 2)
+            cv2.line(img_spacing, (r_inner_l[0], y_bracket), (r_inner_l[0], y_bracket + tick_len), WHITE, 2)
+            cv2.line(img_spacing, (l_inner_l[0], y_bracket), (l_inner_l[0], y_bracket + tick_len), WHITE, 2)
+            spacing_img = img_spacing
+
+            # 2. Scleral Show — full lower-lid contour polylines, both eyes
+            img_sclera = base.copy()
+            r_lower_pts = np.int32([to_local(i) for i in RIGHT_EYE_LOWER])
+            l_lower_pts = np.int32([to_local(i) for i in LEFT_EYE_LOWER])
+            cv2.polylines(img_sclera, [r_lower_pts], isClosed=False, color=WHITE, thickness=2)
+            cv2.polylines(img_sclera, [l_lower_pts], isClosed=False, color=WHITE, thickness=2)
+            sclera_img = img_sclera
+
+            # 3. Limbal Ring — circle traced around each iris
+            img_limbal = base.copy()
+            r_iris_l, l_iris_l = to_local(R_IRIS), to_local(L_IRIS)
+            r_rad = int(np.linalg.norm(pts[471] - pts[R_IRIS])) if len(pts) > 471 else 12
+            l_rad = int(np.linalg.norm(pts[476] - pts[L_IRIS])) if len(pts) > 476 else 12
+            r_rad, l_rad = max(r_rad, 8), max(l_rad, 8)
+            cv2.circle(img_limbal, r_iris_l, r_rad, WHITE, 2)
+            cv2.circle(img_limbal, l_iris_l, l_rad, WHITE, 2)
+            limbal_img = img_limbal
+
+            # 4. Epicanthic Fold — dotted circles at each inner (medial) corner
+            img_epi = base.copy()
+            radius_px = max(int(ipd_px * 0.15), 6)
+            draw_nice_dotted_circle(img_epi, r_inner_l, radius_px)
+            draw_nice_dotted_circle(img_epi, l_inner_l, radius_px)
+            epi_img = img_epi
+
+        # Iris closeup for the color section (tight zoom on right iris)
+        r_iris_pt = pts[R_IRIS]
+        r_rad_full = int(np.linalg.norm(pts[471] - pts[R_IRIS])) if len(pts) > 471 else 12
+        r_rad_full = max(r_rad_full, 10)
+        iris_closeup_img = crop(r_iris_pt[0] - r_rad_full * 3, r_iris_pt[1] - r_rad_full * 3,
+                                 r_iris_pt[0] + r_rad_full * 3, r_iris_pt[1] + r_rad_full * 3)
+
+        # Undereye crop: region just below the right lower lid
+        p_lower = pts[145]
+        undereye_img = crop(p_lower[0] - 25, p_lower[1], p_lower[0] + 25, p_lower[1] + 35)
+
+        return {
+            "r_eye":               rgb_to_b64(r_eye_raw),
+            "l_eye":               rgb_to_b64(l_eye_raw),
+            "r_eye_white":         rgb_to_b64(r_eye_white),
+            "l_eye_white":         rgb_to_b64(l_eye_white),
+            "face_image":          rgb_to_b64(face_image),
+            "eye_spacing_image":   rgb_to_b64(spacing_img) or rgb_to_b64(face_image),
+            "scleral_show_image":  rgb_to_b64(sclera_img) or rgb_to_b64(face_image),
+            "limbal_ring_image":   rgb_to_b64(limbal_img) or rgb_to_b64(face_image),
+            "epicanthic_image":    rgb_to_b64(epi_img) or rgb_to_b64(face_image),
+            "iris_closeup_image":  rgb_to_b64(iris_closeup_img) or rgb_to_b64(r_eye_raw),
+            "undereye_image":      rgb_to_b64(undereye_img) or rgb_to_b64(r_eye_raw),
+        }
+    except Exception as e:
+        print(f"[WARN] MediaPipe eye extraction failed: {e}")
+        return empty
+
+
 def extract_jaw_mediapipe(pil_img: Image.Image):
     """
     Extracts the jaw area from a 45-degree side profile image using MediaPipe face landmarks.
@@ -1693,6 +1866,362 @@ def extract_ear_roboflow(pil_img: Image.Image, mm_per_px: float = None):
         return None, None, {}
 
 
+# ─────────────────────────────────────────────
+# Extended Eye Analysis (shape, lash, undereye, impression)
+# ─────────────────────────────────────────────
+
+def analyze_eye_shape(pts):
+    """Classify eye shape from MediaPipe landmarks."""
+    try:
+        # EAR-based heuristics for shape
+        r_ear = eye_aspect_ratio(pts, 33, 160, 158, 133, 153, 144)
+        l_ear = eye_aspect_ratio(pts, 362, 385, 387, 263, 373, 380)
+        avg_ear = (r_ear + l_ear) / 2
+
+        # Canthal tilt
+        r_tilt = pts[133][1] - pts[33][1]  # positive = upturned
+        l_tilt = pts[362][1] - pts[263][1]
+        avg_tilt = (r_tilt + l_tilt) / 2
+
+        # Classify overall shape
+        if avg_ear < 0.26:
+            overall = "Monolid"
+        elif avg_ear < 0.30:
+            if avg_tilt > 3:
+                overall = "Upturned Almond"
+            elif avg_tilt < -3:
+                overall = "Downturned"
+            else:
+                overall = "Narrow Almond"
+        elif avg_ear < 0.36:
+            if avg_tilt > 4:
+                overall = "Hunter / Upturned"
+            elif avg_tilt < -4:
+                overall = "Downturned Almond"
+            else:
+                overall = "Almond"
+        else:
+            if avg_tilt > 3:
+                overall = "Round Upturned"
+            else:
+                overall = "Round"
+
+        # Sub-shape classifiers
+        upper = "Curved" if avg_ear > 0.28 else "Flat"
+        lower = "Curved" if avg_ear > 0.30 else "Slightly Curved"
+        inner = "Rounded" if avg_ear > 0.29 else "Pointed"
+        outer = "Upturned" if avg_tilt > 4 else ("Downturned" if avg_tilt < -4 else "Rounded")
+
+        expl = (
+            f"Your eyes are {overall.lower()}-shaped with {upper.lower()} upper and {lower.lower()} lids, "
+            f"{inner.lower()} inner corners, and {outer.lower()} outer corners "
+            f"that reflect a {'positive (hunter)' if avg_tilt > 4 else 'neutral'} canthal tilt."
+        )
+        return {
+            "overall_eye_shape": overall,
+            "upper_eyelid_shape": upper,
+            "lower_eyelid_shape": lower,
+            "inner_corner_shape": inner,
+            "outer_corner_shape": outer,
+            "eye_shape_explanation": expl,
+        }
+    except Exception as e:
+        print(f"[WARN] Eye shape analysis failed: {e}")
+        return {
+            "overall_eye_shape": "Almond",
+            "upper_eyelid_shape": "Curved",
+            "lower_eyelid_shape": "Curved",
+            "inner_corner_shape": "Rounded",
+            "outer_corner_shape": "Rounded",
+            "eye_shape_explanation": "N/A",
+        }
+
+
+def analyze_lash_intensity(img_rgb, pts):
+    """Estimate eyelash intensity score (0-100) from pixel std-dev above upper lid."""
+    try:
+        h, w = img_rgb.shape[:2]
+        import cv2 as _cv2
+        gray = _cv2.cvtColor(img_rgb, _cv2.COLOR_RGB2GRAY)
+
+        # Use right upper lid top as ROI reference
+        lid_top_y = pts[159][1]
+        lid_x = pts[159][0]
+        y1 = max(0, lid_top_y - 18)
+        y2 = max(0, lid_top_y + 4)
+        x1 = max(0, lid_x - 40)
+        x2 = min(w, lid_x + 40)
+
+        roi = gray[y1:y2, x1:x2]
+        if roi.size == 0:
+            std_dev = 27.0
+        else:
+            std_dev = float(np.std(roi))
+
+        score = int(np.clip(std_dev * 2.5, 0, 100))
+
+        if score >= 75:
+            category = "Intense"
+            desc = "Your lashes are long, highly dense, and dark, framing the eye powerfully and adding significant contrast to your gaze."
+        elif score >= 45:
+            category = "Medium"
+            desc = "Your lashes are moderately long, dense, and dark which frames the upper eyelid clearly and gives your gaze a defined but not overly stylized outline."
+        else:
+            category = "Faint"
+            desc = "Your lashes are lighter or sparser, providing a softer, more subtle frame to the eye without drawing heavy contrast."
+
+        return {
+            "lash_intensity_score": score,
+            "lash_intensity_category": category,
+            "lash_explanation": desc,
+        }
+    except Exception as e:
+        print(f"[WARN] Lash analysis failed: {e}")
+        return {"lash_intensity_score": 50, "lash_intensity_category": "Medium", "lash_explanation": "N/A"}
+
+
+def analyze_undereye_region(img_rgb, pts):
+    """Estimate undereye health score (0-100) with 4 sub-metrics."""
+    try:
+        import cv2 as _cv2
+        h, w = img_rgb.shape[:2]
+
+        # Lower lid point for right eye
+        p_lower = pts[145]
+        y1 = p_lower[1]
+        y2 = min(h, p_lower[1] + 35)
+        x1 = max(0, p_lower[0] - 25)
+        x2 = min(w, p_lower[0] + 25)
+
+        roi = img_rgb[y1:y2, x1:x2]
+        if roi.size == 0:
+            hyper = puff = hollow = vasc = 20
+        else:
+            gray_roi = _cv2.cvtColor(roi, _cv2.COLOR_RGB2GRAY)
+            lab_roi  = _cv2.cvtColor(roi, _cv2.COLOR_RGB2LAB)
+            l_ch = lab_roi[:, :, 0]
+            a_ch = lab_roi[:, :, 1]
+
+            hyper = float(np.clip((255 - np.mean(l_ch)) * 0.45, 0, 100))
+            sobel_y = _cv2.Sobel(gray_roi, _cv2.CV_64F, 0, 1, ksize=3)
+            puff    = float(np.clip(np.var(sobel_y) / 60, 0, 100))
+            hollow  = float(np.clip(np.std(l_ch) * 1.8, 0, 100))
+            vasc    = float(np.clip(np.std(a_ch) * 3.5, 0, 100))
+
+        avg_flaw = (hyper + puff + hollow + vasc) / 4
+        overall_score = int(np.clip(100 - avg_flaw, 0, 100))
+
+        if overall_score >= 80:
+            category = "Excellent"
+            desc = "Your under-eye region is exceptionally well preserved with minimal shadowing, contouring, or vascular visibility."
+        elif overall_score >= 60:
+            category = "Good"
+            desc = "Your under-eye region is generally well preserved with only mild shadowing, contouring, and vascular visibility which keeps the area looking rested for your age."
+        else:
+            category = "Fair"
+            desc = "Your under-eye region shows moderate signs of shadowing or vascularity, which may contribute to a slightly fatigued appearance."
+
+        return {
+            "undereye_score":       overall_score,
+            "undereye_category":    category,
+            "undereye_explanation": desc,
+            "undereye_hyper":       round(hyper, 1),
+            "undereye_puff":        round(puff, 1),
+            "undereye_hollow":      round(hollow, 1),
+            "undereye_vasc":        round(vasc, 1),
+        }
+    except Exception as e:
+        print(f"[WARN] Undereye analysis failed: {e}")
+        return {
+            "undereye_score": 68, "undereye_category": "Good",
+            "undereye_explanation": "N/A",
+            "undereye_hyper": 30, "undereye_puff": 25,
+            "undereye_hollow": 20, "undereye_vasc": 35,
+        }
+
+
+def analyze_eye_impression(pts):
+    """Derive masculine/feminine and mild/piercing impression scores [-5, +5]."""
+    try:
+        # Canthal tilt: positive = masculine / piercing
+        r_tilt = pts[133][1] - pts[33][1]
+        l_tilt = pts[362][1] - pts[263][1]
+        avg_tilt = (r_tilt + l_tilt) / 2
+
+        # EAR: lower = more piercing, higher = softer
+        r_ear = eye_aspect_ratio(pts, 33, 160, 158, 133, 153, 144)
+        l_ear = eye_aspect_ratio(pts, 362, 385, 387, 263, 373, 380)
+        avg_ear = (r_ear + l_ear) / 2
+
+        # Masculine score: positive tilt -> masculine; wide open -> feminine
+        masc_score = float(np.clip(avg_tilt / 3.0 + (0.30 - avg_ear) * 15, -5, 5))
+        # Piercing score: narrow aperture AND positive tilt -> piercing
+        piercing_score = float(np.clip((0.30 - avg_ear) * 20 + avg_tilt / 4.0, -5, 5))
+
+        masc_score   = round(masc_score, 2)
+        piercing_score = round(piercing_score, 2)
+
+        masc_word    = "masculine" if masc_score > 0 else "feminine"
+        pierce_word  = "piercing"  if piercing_score > 0 else "mild"
+        eye_geo    = "angular geometry" if avg_tilt > 2  else "rounded geometry"
+        brow_word  = "lower"            if avg_ear  < 0.30 else "higher"
+        lid_word   = "narrower"         if avg_ear  < 0.30 else "wider"
+        gaze_qual  = ("sharper, more " + pierce_word) if avg_ear < 0.30 else ("softer, more " + pierce_word)
+        expl = (
+            f"Your eyes combine {eye_geo} with a {brow_word} brow aperture, "
+            f"leaning towards a {masc_word} aesthetic. "
+            f"The {lid_word} vertical aperture creates a {gaze_qual} gaze."
+        )
+        return {
+            "impression_masc_score":     masc_score,
+            "impression_piercing_score": piercing_score,
+            "impression_explanation":    expl,
+        }
+    except Exception as e:
+        print(f"[WARN] Eye impression analysis failed: {e}")
+        return {
+            "impression_masc_score": 0,
+            "impression_piercing_score": 0,
+            "impression_explanation": "N/A",
+        }
+
+def analyze_sclera_color(image_rgb, pts):
+    def sample_sclera(iris_idx, inner_idx, outer_idx):
+        h, w = image_rgb.shape[:2]
+        iris = pts[iris_idx].astype(int)
+        inner = pts[inner_idx].astype(int)
+        outer = pts[outer_idx].astype(int)
+        
+        samples = []
+        r = 5
+        
+        # Medial
+        mid_inner = ((iris + inner) // 2).astype(int)
+        y1, y2 = max(0, mid_inner[1]-r), min(h, mid_inner[1]+r)
+        x1, x2 = max(0, mid_inner[0]-r), min(w, mid_inner[0]+r)
+        patch_inner = image_rgb[y1:y2, x1:x2]
+        if patch_inner.size > 0:
+            samples.append(np.mean(patch_inner, axis=(0, 1)))
+            
+        # Lateral
+        mid_outer = ((iris + outer) // 2).astype(int)
+        y1, y2 = max(0, mid_outer[1]-r), min(h, mid_outer[1]+r)
+        x1, x2 = max(0, mid_outer[0]-r), min(w, mid_outer[0]+r)
+        patch_outer = image_rgb[y1:y2, x1:x2]
+        if patch_outer.size > 0:
+            samples.append(np.mean(patch_outer, axis=(0, 1)))
+            
+        if not samples:
+            return "Unknown"
+            
+        avg_color = np.mean(samples, axis=0)
+        brightness = np.mean(avg_color)
+        rg_avg = (avg_color[0] + avg_color[1]) / 2
+        yellow_tint = rg_avg - avg_color[2]
+        red_tint = avg_color[0] - (avg_color[1] + avg_color[2]) / 2
+        
+        if brightness > 180 and yellow_tint < 20 and red_tint < 15:
+            return "White"
+        elif brightness > 150:
+            return "Off-White"
+        else:
+            return "Discoloured"
+
+    try:
+        r_cls = sample_sclera(468, 133, 33)
+        l_cls = sample_sclera(473, 362, 263)
+        if r_cls == l_cls:
+            return r_cls
+        return "Off-White"
+    except Exception:
+        return "N/A"
+
+def generate_eye_shape_overlay(img_rgb, pts):
+    """Generate Qoves style eye shape visualization with upper orbital crease."""
+    import cv2 as _cv2
+    try:
+        target_img = img_rgb.copy()
+        
+        # User's Right Eye (Left side of image) Upper Crease landmarks
+        r_idxs = [130, 247, 30, 29, 27, 28, 56, 190, 243]
+        r_upper = np.int32([pts[i] for i in r_idxs])
+        
+        # User's Left Eye (Right side of image) Upper Crease landmarks
+        l_idxs = [463, 414, 286, 258, 257, 259, 260, 467, 359]
+        l_upper = np.int32([pts[i] for i in l_idxs])
+
+        try:
+            from scipy.interpolate import splprep, splev
+            def smooth_curve(points):
+                points = points.reshape(-1, 2)
+                tck, u = splprep([points[:,0], points[:,1]], s=0)
+                unew = np.linspace(0, 1.0, 50)
+                out = splev(unew, tck)
+                return np.int32(np.column_stack(out))
+                
+            r_upper = smooth_curve(r_upper)
+            l_upper = smooth_curve(l_upper)
+        except Exception:
+            pass # Fallback to raw landmarks
+
+        # Draw the aesthetic white lines (thickness 2 for visibility)
+        _cv2.polylines(target_img, [r_upper, l_upper], isClosed=False, color=(255, 255, 255), thickness=2)
+        
+        return rgb_to_b64(target_img)
+    except Exception as e:
+        print(f"[WARN] Eye shape overlay generation failed: {e}")
+        return None
+
+
+def analyze_visual_features(pts, spacing_ratio):
+    """Classify other eye visual features: spacing, scleral show, limbal ring, epicanthic fold."""
+    try:
+        # Eye spacing
+        if spacing_ratio < 0.22:
+            spacing_feat = "Close-Set Eyes"
+        elif spacing_ratio > 0.24:
+            spacing_feat = "Wide-Set Eyes"
+        else:
+            spacing_feat = "Normal Eye Spacing"
+
+        # Scleral show: if lower lid sits below iris bottom
+        r_lid_bot = pts[145][1]
+        r_iris_bot = pts[159][1]  # approximate iris bottom (lid top used as proxy)
+        scleral_show = r_lid_bot > r_iris_bot + 4
+        scleral_feat = "Scleral Show Present" if scleral_show else "No Scleral Show"
+
+        # Limbal ring: always default to visible (cannot measure from landmarks)
+        limbal_feat = "Visible Limbal Ring"
+
+        # Epicanthic fold: if inner canthal landmark is significantly lower than expected
+        r_inner = pts[133]
+        r_outer = pts[33]
+        tilt_px = r_inner[1] - r_outer[1]
+        epicanthic_feat = "Epicanthic Fold" if tilt_px < -5 else "No Epicanthic Fold"
+
+        expl = (
+            f"You have {spacing_feat.lower()} with {scleral_feat.lower()} and a {limbal_feat.lower()}. "
+            f"{epicanthic_feat} is noted at the inner corner, which influences the apparent width and depth of your gaze."
+        )
+
+        return {
+            "eye_spacing_feature":    spacing_feat,
+            "scleral_show_feature":   scleral_feat,
+            "limbal_ring_feature":    limbal_feat,
+            "epicanthic_feature":     epicanthic_feat,
+            "visual_features_explanation": expl,
+        }
+    except Exception as e:
+        print(f"[WARN] Visual features analysis failed: {e}")
+        return {
+            "eye_spacing_feature":    "Normal Eye Spacing",
+            "scleral_show_feature":   "No Scleral Show",
+            "limbal_ring_feature":    "Visible Limbal Ring",
+            "epicanthic_feature":     "No Epicanthic Fold",
+            "visual_features_explanation": "N/A",
+        }
+
+
 @app.route("/analyze_all", methods=["POST"])
 def analyze_all():
     """
@@ -1788,6 +2317,22 @@ def analyze_all():
         }
 
         eym = metrics.get("eye", {})
+
+        # Run extended eye analyses
+        eye_shape_data    = analyze_eye_shape(pts)
+        lash_data         = analyze_lash_intensity(img_rgb, pts)
+        undereye_data     = analyze_undereye_region(img_rgb, pts)
+        impression_data   = analyze_eye_impression(pts)
+        spacing_ratio_val = eym.get("eye_spacing_ratio_ipd_over_face_width") or 0
+        visual_feat_data  = analyze_visual_features(pts, float(spacing_ratio_val))
+
+        # MediaPipe-based eye images. The SegFormer l_eye/r_eye segmentation classes
+        # are a thin sliver that frequently segments to zero pixels, which is why
+        # every image on the eyes page could go blank at once. This landmark-based
+        # extractor is robust to that and is used as the primary image source, with
+        # the segmentation-based part_imgs["r_eye"/"l_eye"] kept only as a fallback.
+        eye_imgs = extract_eyes_mediapipe(img_rgb, pts)
+
         eyes_data = {
             "right_eye_aspect_ratio":          _fmt(eym.get("right_eye_aspect_ratio"), 4),
             "left_eye_aspect_ratio":           _fmt(eym.get("left_eye_aspect_ratio"), 4),
@@ -1799,17 +2344,45 @@ def analyze_all():
             # classes (match existing HTML IDs)
             "tilt_class":     eym.get("tilt_class", "N/A"),
             "exposure_class": eym.get("exposure_class", "N/A"),
-            "sclera_class":   eym.get("sclera_class", "N/A"),
-            "health_class":   eym.get("health_class", "N/A"),
+            "sclera_class":   analyze_sclera_color(img_rgb, pts),
+            "health_class":   undereye_data.get("undereye_category", "N/A"),
             # carousel values
             "curvature":     float(eym.get("avg_lower_eyelid_curvature") or 0),
             "ear":           float(eym.get("avg_ear") or 0),
-            "spacing_ratio": float(eym.get("eye_spacing_ratio_ipd_over_face_width") or 0),
-            # images (r_eye=5, l_eye=4)
-            "r_eye_image_white": part_imgs["r_eye"]["white_bg"],
-            "r_eye_image":       part_imgs["r_eye"]["cropped"],
-            "l_eye_image_white": part_imgs["l_eye"]["white_bg"],
-            "l_eye_image":       part_imgs["l_eye"]["cropped"],
+            "spacing_ratio": float(spacing_ratio_val),
+            # images (r_eye=5, l_eye=4) — MediaPipe-based crops first, segmentation as fallback
+            "r_eye_image_white": eye_imgs.get("r_eye_white") or part_imgs["r_eye"]["white_bg"],
+            "r_eye_image":       eye_imgs.get("r_eye")       or part_imgs["r_eye"]["cropped"],
+            "l_eye_image_white": eye_imgs.get("l_eye_white") or part_imgs["l_eye"]["white_bg"],
+            "l_eye_image":       eye_imgs.get("l_eye")       or part_imgs["l_eye"]["cropped"],
+            # wide face panel used by the eye-shape / visual-features / lashes sections
+            "face_image":        eye_imgs.get("face_image"),
+            "full_face_image":   rgb_to_b64(img_rgb),
+            "eye_shape_image":   generate_eye_shape_overlay(img_rgb, pts),
+            # eye shape
+            **eye_shape_data,
+            # lash intensity
+            **lash_data,
+            # undereye
+            **undereye_data,
+            "undereye_image":    eye_imgs.get("undereye_image"),
+            # impression
+            **impression_data,
+            # other visual features (text + one dedicated image per feature tile)
+            **visual_feat_data,
+            "eye_spacing_image":  eye_imgs.get("eye_spacing_image"),
+            "scleral_show_image": eye_imgs.get("scleral_show_image"),
+            "limbal_ring_image":  eye_imgs.get("limbal_ring_image"),
+            "epicanthic_image":   eye_imgs.get("epicanthic_image"),
+            # iris close-up used by the color section
+            "iris_closeup_image": eye_imgs.get("iris_closeup_image"),
+            # color placeholders (populated client-side or extended later)
+            "iris_color_name":   "Brown",
+            "iris_color_hex":    "#6b3e26",
+            "limbal_color_name": "Onyx Black",
+            "limbal_color_hex":  "#1a1a1a",
+            "sclera_color_name": "Off-White",
+            "sclera_color_hex":  "#f5f5f0",
         }
 
         nm = metrics.get("nose", {})

@@ -3,3 +3,4 @@
 **/face-parsing
 **__pycache__/
 .env
+EAR-roboflow\.ipynb_checkpoints/

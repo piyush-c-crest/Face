@@ -1591,6 +1591,241 @@ def analyze_lips_advanced(img_rgb, pts, mm_per_px, mouth_width_mm, philtrum_mm, 
 
 
 # ─────────────────────────────────────────────
+# Cheeks — Advanced Analysis
+# (projection, definition/fullness, midface fWHR)
+# Mirrors mediapipe_cheeks.ipynb
+# ─────────────────────────────────────────────
+
+def _draw_dashed_line(img, pt1, pt2, color=(255, 255, 255), thickness=1, dash_len=6, gap_len=5):
+    pt1 = np.array(pt1, dtype=float)
+    pt2 = np.array(pt2, dtype=float)
+    seg_len = dash_len + gap_len
+    dist_total = float(np.linalg.norm(pt2 - pt1))
+    if dist_total < 1e-6:
+        return
+    direction = (pt2 - pt1) / dist_total
+    n_dashes = int(dist_total // seg_len) + 1
+    for i in range(n_dashes):
+        start = pt1 + direction * i * seg_len
+        end = start + direction * dash_len
+        if np.linalg.norm(end - pt1) > dist_total:
+            end = pt2
+        cv2.line(img, tuple(np.int32(start)), tuple(np.int32(end)), color, thickness, cv2.LINE_AA)
+
+
+def analyze_cheeks_advanced(img_rgb, pts, labels):
+    """
+    Extended cheek analysis mirroring mediapipe_cheeks.ipynb:
+      1. Cheek Projection    - zygomatic width / nasion-to-chin height ratio
+      2. Cheek Definition    - composite score from zygomatic/gonial ratio,
+                                cheek hollow depth, and midface height/width
+      3. Midface fWHR        - facial width-to-height ratio & visual impression
+    Returns a flat dict ready to be merged into cheeks_data.
+    """
+    h, w = img_rgb.shape[:2]
+
+    def get_pt(idx):
+        return pts[idx].astype(float)
+
+    empty_result = {
+        "cheek_projection_ratio": None, "cheek_projection_status": "N/A",
+        "cheek_projection_explanation": "N/A", "cheek_projection_image": None,
+
+        "cheek_definition_score": None, "cheek_definition_level": "N/A",
+        "cheek_definition_category": "N/A", "cheek_definition_explanation": "N/A",
+        "cheek_definition_image": None,
+
+        "cheek_fwhr": None, "cheek_fwhr_emphasis": "N/A",
+        "cheek_fwhr_impression": "N/A", "cheek_fwhr_explanation": "N/A",
+        "cheek_fwhr_image": None,
+    }
+
+    try:
+        # ── Shared full-face crop (generous padding) for the annotated overlays ──
+        all_pts_int = np.array(pts, dtype=np.int32)
+        fx, fy, fw_box, fh_box = cv2.boundingRect(all_pts_int)
+        pad_x = int(fw_box * 0.12)
+        pad_y = int(fh_box * 0.18)
+        fx1, fy1 = max(0, fx - pad_x), max(0, fy - pad_y)
+        fx2, fy2 = min(w, fx + fw_box + pad_x), min(h, fy + fh_box + pad_y)
+
+        def crop_face(im):
+            c = im[fy1:fy2, fx1:fx2]
+            return c if c.size else im
+
+        LC = (255, 255, 255)
+
+        # ══ 1. CHEEK PROJECTION ══
+        top_r, top_l = get_pt(127), get_pt(356)
+        bot_r, bot_l = get_pt(234), get_pt(454)
+        eye_r, eye_l = get_pt(33), get_pt(263)
+        nose_r, nose_l = get_pt(129), get_pt(358)
+        mouth_r, mouth_l = get_pt(61), get_pt(291)
+        cheek_r, cheek_l = get_pt(116), get_pt(345)
+        top_head, chin, nasion = get_pt(10), get_pt(152), get_pt(9)
+
+        t_r = (cheek_r[0] - bot_r[0]) / (bot_l[0] - bot_r[0] + 1e-6)
+        circle_r = bot_r + t_r * (bot_l - bot_r)
+        t_l = (cheek_l[0] - bot_r[0]) / (bot_l[0] - bot_r[0] + 1e-6)
+        circle_l = bot_r + t_l * (bot_l - bot_r)
+
+        v_top = top_l - top_r
+        u_top = v_top / (np.linalg.norm(v_top) + 1e-9)
+        v_bot = bot_l - bot_r
+        u_bot = v_bot / (np.linalg.norm(v_bot) + 1e-9)
+
+        zyg_width = float(np.linalg.norm(bot_r - bot_l))
+        face_height_proj = float(np.linalg.norm(nasion - chin))
+        projection_ratio = zyg_width / (face_height_proj + 1e-6)
+
+        if projection_ratio >= 0.85:
+            proj_status = "Prominent"
+            proj_explanation = ("Cheek projection is highly concentrated, pushing outward and giving the "
+                                 "midface strong contour and a visually striking 'high cheekbone' appearance.")
+        elif projection_ratio >= 0.78:
+            proj_status = "Normal"
+            proj_explanation = ("Cheek projection is concentrated laterally rather than directly under the eye "
+                                 "so profile views show strong side contour with only moderate forward cheek pop.")
+        else:
+            proj_status = "Soft"
+            proj_explanation = ("Cheek projection is minimal, allowing the midface to gently taper down, "
+                                 "creating a softer and more delicate facial silhouette without harsh shadows.")
+
+        img_proj = img_rgb.copy()
+    _draw_dashed_line(img_proj, top_head, chin, LC, 1, dash_len=4, gap_len=4)
+        cv2.line(img_proj, tuple(np.int32(top_r)), tuple(np.int32(top_l)), LC, 2, cv2.LINE_AA)
+        cv2.arrowedLine(img_proj, tuple(np.int32(top_r)), tuple(np.int32(top_r - 15 * u_top)), LC, 2, tipLength=0.4)
+        cv2.arrowedLine(img_proj, tuple(np.int32(top_l)), tuple(np.int32(top_l + 15 * u_top)), LC, 2, tipLength=0.4)
+        _draw_dashed_line(img_proj, bot_r, bot_l, LC, 2, dash_len=8, gap_len=6)
+        cv2.line(img_proj, tuple(np.int32(eye_r)), tuple(np.int32(nose_r)), LC, 1, cv2.LINE_AA)
+        cv2.line(img_proj, tuple(np.int32(eye_l)), tuple(np.int32(nose_l)), LC, 1, cv2.LINE_AA)
+        cv2.line(img_proj, tuple(np.int32(bot_r)), tuple(np.int32(mouth_r)), LC, 1, cv2.LINE_AA)
+        cv2.line(img_proj, tuple(np.int32(bot_l)), tuple(np.int32(mouth_l)), LC, 1, cv2.LINE_AA)
+        for c in (circle_r, circle_l):
+            cv2.circle(img_proj, tuple(np.int32(c)), 6, LC, 1, cv2.LINE_AA)
+            cv2.circle(img_proj, tuple(np.int32(c)), 2, LC, -1, cv2.LINE_AA)
+        cv2.arrowedLine(img_proj, tuple(np.int32(circle_r - 3 * u_bot)), tuple(np.int32(circle_r - 15 * u_bot)), LC, 1, tipLength=0.4)
+        cv2.arrowedLine(img_proj, tuple(np.int32(circle_l + 3 * u_bot)), tuple(np.int32(circle_l + 15 * u_bot)), LC, 1, tipLength=0.4)
+        for p in (eye_r, eye_l, nose_r, nose_l, mouth_r, mouth_l):
+            cv2.circle(img_proj, tuple(np.int32(p)), 3, LC, -1, cv2.LINE_AA)
+        projection_image_b64 = rgb_to_b64(crop_face(img_proj))
+
+        # ══ 2. CHEEK DEFINITION / FULLNESS ══
+        zyg_r2, zyg_l2 = get_pt(234), get_pt(454)
+        gon_r, gon_l = get_pt(58), get_pt(288)
+        zyg_width2 = float(np.linalg.norm(zyg_r2 - zyg_l2))
+        gon_width = float(np.linalg.norm(gon_r - gon_l))
+        zgr = zyg_width2 / (gon_width + 1e-6)
+        zgr_score = float(np.clip((zgr - 1.05) / (1.35 - 1.05), 0, 1) * 100)
+
+        def point_to_line_dist(p, a, b):
+            ab = b - a
+            ap = p - a
+            t = np.dot(ap, ab) / (np.dot(ab, ab) + 1e-6)
+            t = np.clip(t, 0, 1)
+            proj = a + t * ab
+            return float(np.linalg.norm(p - proj))
+
+        depth_r = point_to_line_dist(get_pt(216), get_pt(116), get_pt(58))
+        depth_l = point_to_line_dist(get_pt(436), get_pt(345), get_pt(288))
+        avg_depth = (depth_r + depth_l) / 2.0
+        face_height_def = float(np.linalg.norm(get_pt(10) - get_pt(152)))
+        norm_depth = avg_depth / (face_height_def + 1e-6)
+        chd_score = float(np.clip((norm_depth - 0.02) / (0.07 - 0.02), 0, 1) * 100)
+
+        nasion2, subnasale = get_pt(9), get_pt(2)
+        midface_height = float(np.linalg.norm(nasion2 - subnasale))
+        mhw = midface_height / (zyg_width2 + 1e-6)
+        mhw_score = float(np.clip((mhw - 0.30) / (0.50 - 0.30), 0, 1) * 100)
+
+        definition_score = int(np.clip(0.40 * zgr_score + 0.35 * chd_score + 0.25 * mhw_score, 0, 100))
+
+        if definition_score >= 80:
+            def_level, def_category = "Very High", "Highly Defined"
+            def_explanation = ("Your cheeks are extremely lean with a highly pronounced separation between the "
+                                "cheekbone and hollows, giving a striking, chiseled contour.")
+        elif definition_score >= 60:
+            def_level, def_category = "High", "Defined"
+            def_explanation = ("Your cheeks are lean with clear separation between cheekbone, hollow and lower "
+                                "cheek which gives your midface a sharper, more athletic contour rather than a "
+                                "rounded or pillowy look.")
+        elif definition_score >= 40:
+            def_level, def_category = "Average", "Moderate"
+            def_explanation = ("Your cheeks have a balanced fullness, offering a mix of youthful volume and "
+                                "subtle contour without being overly sharp or heavily rounded.")
+        else:
+            def_level, def_category = "Low", "Undefined"
+            def_explanation = ("Your midface carries more volume, resulting in a softer, fuller, and more "
+                                "rounded contour that often conveys a highly youthful and pillowy appearance.")
+
+        # Full-frame face cutout on white background (labels 1-16, same as the notebook's SegFormer step)
+        cutout_full = extract_part_white_bg(img_rgb, labels, list(range(1, 17)))
+        definition_image_b64 = rgb_to_b64(cutout_full)
+
+        # ══ 3. MIDFACE fWHR ══
+        zyg_r3, zyg_l3 = get_pt(234), get_pt(454)
+        brow_mid, upper_lip = get_pt(9), get_pt(0)
+        face_width3 = float(np.linalg.norm(zyg_r3 - zyg_l3))
+        midface_height2 = float(np.linalg.norm(brow_mid - upper_lip))
+        fwhr = face_width3 / (midface_height2 + 1e-6)
+
+        avg_male = 1.75
+        if fwhr >= avg_male + 0.10:
+            fwhr_emphasis = "increased"
+            fwhr_impression = "more dominant and assertive"
+            fwhr_explanation = ("You show an increased facial width-to-height emphasis, which can give you a "
+                                 "more dominant and assertive overall impression compared with typical peers "
+                                 "in your demographic.")
+        elif fwhr >= avg_male - 0.10:
+            fwhr_emphasis = "average"
+            fwhr_impression = "balanced"
+            fwhr_explanation = ("You show a balanced facial width-to-height emphasis, giving you a neutral and "
+                                 "proportionate overall impression that is typical of your demographic.")
+        else:
+            fwhr_emphasis = "reduced"
+            fwhr_impression = "less dominant and softer"
+            fwhr_explanation = ("You show a reduced facial width-to-height emphasis, which can give you a less "
+                                 "dominant and softer overall impression compared with typical peers in your "
+                                 "demographic.")
+
+        zyg_y_avg = (zyg_r3[1] + zyg_l3[1]) / 2.0
+        cx = (brow_mid[0] + upper_lip[0]) / 2.0
+        top_head2, chin2 = get_pt(10), get_pt(152)
+
+        img_fwhr = img_rgb.copy()
+        _draw_dashed_line(img_fwhr, (cx, top_head2[1]), (cx, chin2[1]), LC, 1, dash_len=4, gap_len=4)
+        cv2.line(img_fwhr, (int(zyg_r3[0]), int(zyg_y_avg)), (int(zyg_l3[0]), int(zyg_y_avg)), LC, 2, cv2.LINE_AA)
+        cv2.arrowedLine(img_fwhr, (int(zyg_r3[0]), int(zyg_y_avg)), (int(zyg_r3[0] - 12), int(zyg_y_avg)), LC, 2, tipLength=0.4)
+        cv2.arrowedLine(img_fwhr, (int(zyg_l3[0]), int(zyg_y_avg)), (int(zyg_l3[0] + 12), int(zyg_y_avg)), LC, 2, tipLength=0.4)
+        cv2.line(img_fwhr, (int(cx), int(brow_mid[1])), (int(cx), int(upper_lip[1])), LC, 2, cv2.LINE_AA)
+        for p in [(cx, zyg_y_avg), (cx, brow_mid[1]), (cx, upper_lip[1]), (zyg_r3[0], zyg_y_avg), (zyg_l3[0], zyg_y_avg)]:
+            cv2.circle(img_fwhr, (int(p[0]), int(p[1])), 3, LC, -1, cv2.LINE_AA)
+        fwhr_image_b64 = rgb_to_b64(crop_face(img_fwhr))
+
+        return {
+            "cheek_projection_ratio": round(projection_ratio, 3),
+            "cheek_projection_status": proj_status,
+            "cheek_projection_explanation": proj_explanation,
+            "cheek_projection_image": projection_image_b64,
+
+            "cheek_definition_score": definition_score,
+            "cheek_definition_level": def_level,
+            "cheek_definition_category": def_category,
+            "cheek_definition_explanation": def_explanation,
+            "cheek_definition_image": definition_image_b64,
+
+            "cheek_fwhr": round(fwhr, 2),
+            "cheek_fwhr_emphasis": fwhr_emphasis,
+            "cheek_fwhr_impression": fwhr_impression,
+            "cheek_fwhr_explanation": fwhr_explanation,
+            "cheek_fwhr_image": fwhr_image_b64,
+        }
+    except Exception as e:
+        print(f"[WARN] Advanced cheeks analysis failed: {e}")
+        return empty_result
+
+
+# ─────────────────────────────────────────────
 # Skin Analysis
 # ─────────────────────────────────────────────
 

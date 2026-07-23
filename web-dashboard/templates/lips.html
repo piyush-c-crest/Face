@@ -419,6 +419,67 @@
         .metric-row:hover { background:#f1f5f9; }
         .metric-label { color:var(--text-secondary); font-weight:500; }
         .metric-val { color:var(--text-primary); font-weight:600; }
+
+        /* ── New: shared section wrapper ── */
+        .section-card {
+            margin-top: 24px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+        }
+        .section-title { font-size: 20px; font-weight: 600; margin: 0 0 4px 0; }
+        .section-subtitle { font-size: 13px; color: var(--text-secondary); margin: 0 0 24px 0; }
+
+        /* ── Lip Shape section ── */
+        .shape-layout { display: grid; grid-template-columns: 260px 1fr; gap: 32px; align-items: start; }
+        .shape-image-wrap { text-align: center; }
+        .shape-image-wrap img { width: 100%; max-width: 240px; border-radius: 12px; background:#fafafa; border:1px solid var(--border-color); }
+        .shape-headline { font-size: 22px; font-weight: 600; margin: 0 0 8px 0; }
+        .shape-desc { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin: 0 0 24px 0; }
+        .shape-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .shape-detail-row { display:flex; justify-content:space-between; padding:12px 16px; background:#fafafa; border:1px solid var(--border-color); border-radius:8px; font-size:13px; }
+        .shape-detail-row .label { color: var(--text-secondary); font-weight:500; }
+        .shape-detail-row .value { color: var(--text-primary); font-weight:600; }
+
+        /* ── Other Visual Features ── */
+        .features-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+        .feature-card { text-align: center; }
+        .feature-card img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; background:#fafafa; border:1px solid var(--border-color); margin-bottom: 12px; }
+        .feature-card .feature-title { font-size: 13px; font-weight: 600; margin-bottom: 6px; line-height:1.3; }
+        .feature-card .feature-exp { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+
+        /* ── Lip Color ── */
+        .color-layout { display: grid; grid-template-columns: 220px 1fr; gap: 32px; align-items: center; }
+        .color-layout img { width: 100%; border-radius: 12px; background:#fafafa; border:1px solid var(--border-color); }
+        .swatch-list { display: flex; flex-direction: column; gap: 8px; }
+        .swatch-row { display:flex; align-items:center; gap:12px; font-size: 13px; }
+        .swatch-chip { width: 28px; height: 22px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.06); flex-shrink:0; }
+        .swatch-hex { font-family: monospace; color: var(--text-secondary); }
+        .primary-color-label { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+        .primary-color-label .swatch-chip { display:inline-block; vertical-align:middle; margin-right:8px; }
+
+        /* ── Lip Texture ── */
+        .texture-layout { display: grid; grid-template-columns: 240px 1fr; gap: 32px; align-items: center; }
+        .texture-layout img { width: 100%; border-radius: 12px; background:#fafafa; border:1px solid var(--border-color); }
+        .smooth-score { font-size: 32px; font-weight: 700; margin-bottom: 4px; }
+        .smooth-score span { font-size: 15px; font-weight: 500; color: var(--text-secondary); }
+        .smooth-bar-track { height: 8px; border-radius: 4px; background: var(--bar-bg); margin: 16px 0; overflow:hidden; }
+        .smooth-bar-fill { height: 100%; background: var(--marker-color); border-radius: 4px; transition: width 0.6s ease; }
+        .smooth-exp { font-size: 14px; color: var(--text-secondary); line-height: 1.6; }
+
+        /* ── Lip Fullness ── */
+        .fullness-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: center; }
+        .fullness-score-row { display:flex; align-items:baseline; gap:12px; margin-bottom:8px; }
+        .fullness-score-num { font-size: 32px; font-weight: 700; }
+        .fullness-badge { display:inline-block; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+        .ratio-bars { margin-top: 20px; }
+        .ratio-bar-row { display:grid; grid-template-columns: 70px 1fr; align-items:center; gap:12px; margin-bottom:12px; font-size:12px; color: var(--text-secondary); }
+        .ratio-bar-track { height: 10px; background: var(--bar-bg); border-radius: 5px; overflow:hidden; }
+        .ratio-bar-fill { height: 100%; background: var(--marker-color); border-radius: 5px; transition: width 0.6s ease; }
+        .ratio-summary { font-size: 13px; color: var(--text-secondary); margin-top: 16px; }
+        .ratio-summary b { color: var(--text-primary); }
     </style>
 </head>
 <body>
@@ -613,6 +674,95 @@
             </div>
         </div>
 
+        <!-- Lip Shape -->
+        <div class="section-card">
+            <div class="section-title">Your lip shape</div>
+            <div class="section-subtitle">Overall lip shape derived from Cupid's bow, oral commissures, and upper/lower lip curvature.</div>
+            <div class="shape-layout">
+                <div class="shape-image-wrap">
+                    <img id="shapeImage" src="" alt="Lip shape annotation">
+                </div>
+                <div>
+                    <div class="shape-headline" id="valOverallShape">--</div>
+                    <p class="shape-desc" id="valShapeExplanation">--</p>
+                    <div class="shape-detail-grid">
+                        <div class="shape-detail-row"><span class="label">Upper Lip Shape [A]</span><span class="value" id="valUpperLipShape">--</span></div>
+                        <div class="shape-detail-row"><span class="label">Lower Lip Shape [B]</span><span class="value" id="valLowerLipShape">--</span></div>
+                        <div class="shape-detail-row"><span class="label">Cupid's Bow Prominence [C]</span><span class="value" id="valCupidsBowProm">--</span></div>
+                        <div class="shape-detail-row"><span class="label">Oral Commissures [D]</span><span class="value" id="valOralComm">--</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Other Visual Features -->
+        <div class="section-card">
+            <div class="section-title">Other visual features of your lips</div>
+            <div class="section-subtitle">Border definition, philtrum length, projection, and teeth exposure at rest.</div>
+            <div class="features-grid" id="visualFeaturesGrid">
+                <!-- populated by JS -->
+            </div>
+        </div>
+
+        <!-- Lip Color -->
+        <div class="section-card">
+            <div class="section-title">Your lip color</div>
+            <div class="section-subtitle">Dominant lip shades extracted via K-Means clustering.</div>
+            <div class="color-layout">
+                <img id="colorImage" src="" alt="Lip color cutout">
+                <div>
+                    <div class="primary-color-label"><span class="swatch-chip" id="primarySwatchChip"></span>Primary color: <span id="valPrimaryColorName">--</span> (<span id="valPrimaryColorHex">--</span>)</div>
+                    <div class="swatch-list" id="colorSwatchList">
+                        <!-- populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lip Texture -->
+        <div class="section-card">
+            <div class="section-title">Lip texture surface analysis</div>
+            <div class="section-subtitle">Surface smoothness estimated from micro-line / edge density.</div>
+            <div class="texture-layout">
+                <img id="textureImage" src="" alt="Lip texture map">
+                <div>
+                    <div class="smooth-score"><span id="valSmoothPct">--</span><span>% smooth (0% rough - 100% smooth)</span></div>
+                    <div class="smooth-bar-track"><div class="smooth-bar-fill" id="smoothBarFill" style="width:0%;"></div></div>
+                    <p class="smooth-exp" id="valSmoothExp">--</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lip Fullness -->
+        <div class="section-card">
+            <div class="section-title">Lip fullness</div>
+            <div class="section-subtitle">Fullness score and the upper-to-lower lip proportion.</div>
+            <div class="fullness-layout">
+                <div>
+                    <div class="fullness-score-row">
+                        <div class="fullness-score-num"><span id="valFullnessScore">--</span>/100</div>
+                        <div class="fullness-badge" id="fullnessBadge">--</div>
+                    </div>
+                    <div class="ratio-bars">
+                        <div class="ratio-bar-row">
+                            <span>Upper Lip</span>
+                            <div class="ratio-bar-track"><div class="ratio-bar-fill" id="upperBarFill" style="width:0%;"></div></div>
+                        </div>
+                        <div class="ratio-bar-row">
+                            <span>Lower Lip</span>
+                            <div class="ratio-bar-track"><div class="ratio-bar-fill" id="lowerBarFill" style="width:0%;"></div></div>
+                        </div>
+                    </div>
+                    <p class="ratio-summary">Generally, the lower lip is expected to be more full than the upper lip.<br>
+                        Your proportion: <b id="valPropLabel">--</b> (value: <b id="valRatioText">--</b>)<br>
+                        Ideal proportion: <b>Upper &lt; Lower</b> (value: 0.50 : 1.00)</p>
+                </div>
+                <div class="shape-image-wrap">
+                    <img id="fullnessImage" src="" alt="Lip fullness">
+                </div>
+            </div>
+        </div>
+
     </div>
 </div>
 
@@ -701,6 +851,70 @@
                 `<div class="metric-row"><span class="metric-label">${label}</span><span class="metric-val">${val || 'N/A'}</span></div>`
             ).join('');
         }
+
+        // ── Lip Shape ──
+        const shapeImg = document.getElementById('shapeImage');
+        if (shapeImg && data.shape_image) shapeImg.src = data.shape_image;
+        setVal('valOverallShape',      data.overall_shape);
+        setVal('valShapeExplanation',  data.shape_explanation);
+        setVal('valUpperLipShape',     data.upper_lip_shape);
+        setVal('valLowerLipShape',     data.lower_lip_shape);
+        setVal('valCupidsBowProm',     data.cupids_bow_prominence);
+        setVal('valOralComm',          data.oral_commissures);
+
+        // ── Other Visual Features ──
+        const featuresGrid = document.getElementById('visualFeaturesGrid');
+        if (featuresGrid && Array.isArray(data.visual_features) && data.visual_features.length) {
+            featuresGrid.innerHTML = data.visual_features.map(f => `
+                <div class="feature-card">
+                    <img src="${f.image || ''}" alt="${f.title || ''}">
+                    <div class="feature-title">${f.title || 'N/A'}</div>
+                    <div class="feature-exp">${f.explanation || ''}</div>
+                </div>
+            `).join('');
+        }
+
+        // ── Lip Color ──
+        const colorImg = document.getElementById('colorImage');
+        if (colorImg && data.lip_cutout_image) colorImg.src = data.lip_cutout_image;
+        setVal('valPrimaryColorName', data.lip_color_primary_name);
+        setVal('valPrimaryColorHex',  data.lip_color_primary_hex);
+        const primaryChip = document.getElementById('primarySwatchChip');
+        if (primaryChip && data.lip_color_primary_hex) primaryChip.style.background = data.lip_color_primary_hex;
+        const swatchList = document.getElementById('colorSwatchList');
+        if (swatchList && Array.isArray(data.lip_color_palette) && data.lip_color_palette.length) {
+            swatchList.innerHTML = data.lip_color_palette.map(hex => `
+                <div class="swatch-row">
+                    <div class="swatch-chip" style="background:${hex};"></div>
+                    <span class="swatch-hex">${hex}</span>
+                </div>
+            `).join('');
+        }
+
+        // ── Lip Texture ──
+        const textureImg = document.getElementById('textureImage');
+        if (textureImg && data.lip_texture_image) textureImg.src = data.lip_texture_image;
+        setVal('valSmoothPct', data.lip_smoothness_pct);
+        setVal('valSmoothExp', data.lip_smoothness_explanation);
+        const smoothBar = document.getElementById('smoothBarFill');
+        if (smoothBar) smoothBar.style.width = `${Math.max(0, Math.min(100, data.lip_smoothness_pct || 0))}%`;
+
+        // ── Lip Fullness ──
+        const fullnessImg = document.getElementById('fullnessImage');
+        if (fullnessImg && data.lip_cutout_image) fullnessImg.src = data.lip_cutout_image;
+        setVal('valFullnessScore', data.lip_fullness_score);
+        const badge = document.getElementById('fullnessBadge');
+        if (badge) {
+            badge.innerText = data.lip_fullness_badge_text || 'N/A';
+            badge.style.background = data.lip_fullness_badge_bg || '#f8fafc';
+            badge.style.color = data.lip_fullness_badge_color || '#64748b';
+        }
+        const upperBar = document.getElementById('upperBarFill');
+        const lowerBar = document.getElementById('lowerBarFill');
+        if (upperBar) upperBar.style.width = `${data.lip_fullness_upper_bar_pct || 0}%`;
+        if (lowerBar) lowerBar.style.width = `${data.lip_fullness_lower_bar_pct || 0}%`;
+        setVal('valPropLabel',  data.lip_fullness_proportion_label);
+        setVal('valRatioText',  data.lip_fullness_ratio_text);
     });
 </script>
 

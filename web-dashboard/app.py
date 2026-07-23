@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Flask Face Parsing Dashboard
 Serves the face analysis web dashboard using:
@@ -1237,6 +1236,361 @@ def analyze_hair_color(img_rgb, hair_mask, n_colors=5):
 
 
 # ─────────────────────────────────────────────
+# Lips — Advanced Analysis
+# (shape, other visual features, color, texture, fullness)
+# Mirrors lips_analysis_clean.ipynb
+# ─────────────────────────────────────────────
+
+def _lip_face_crop(img_rgb, crop_pts, pad_x_mult=1.5, pad_y_mult=3.5, pad_y_top_mult=1.5):
+    """Crop a region around a set of landmark points with generous padding
+    (mirrors the notebook's get_face_crop())."""
+    h, w = img_rgb.shape[:2]
+    x, y, w_box, h_box = cv2.boundingRect(crop_pts)
+    pad_x = int(w_box * pad_x_mult)
+    pad_y = int(h_box * pad_y_mult)
+    x1 = max(0, x - pad_x)
+    y1 = max(0, y - int(pad_y * pad_y_top_mult))
+    x2 = min(w, x + w_box + pad_x)
+    y2 = min(h, y + pad_y)
+    crop = img_rgb[y1:y2, x1:x2]
+    return crop if crop.size else img_rgb
+
+
+def get_lip_color_name(rgb):
+    r, g, b = float(rgb[0]), float(rgb[1]), float(rgb[2])
+    luminance = 0.299 * r + 0.587 * g + 0.114 * b
+    if r > g + 40 and r > b + 40:
+        if luminance < 80: return "Deep Burgundy"
+        elif luminance < 120: return "Brick Dust"
+        elif g > 100: return "Coral Pink"
+        else: return "Crimson Red"
+    elif r > g + 20 and r > b + 20:
+        if luminance < 100: return "Plum Brown"
+        elif luminance < 140: return "Dusty Rose"
+        else: return "Soft Pink"
+    else:
+        if luminance < 100: return "Dark Espresso"
+        elif luminance < 150: return "Warm Taupe"
+        else: return "Pale Nude"
+
+
+def analyze_lips_advanced(img_rgb, pts, mm_per_px, mouth_width_mm, philtrum_mm, cupid_angle):
+    """
+    Extended lip analysis mirroring lips_analysis_clean.ipynb:
+      1. Lip shape (overall shape + A/B/C/D breakdown, annotated image)
+      2. Other visual features (border, philtrum, projection, teeth-at-rest) w/ 4 annotated images
+      3. Lip color (K-Means dominant shades on a landmark-cropped cutout)
+      4. Lip texture (CLAHE + edge-density smoothness scoring)
+      5. Lip fullness (0-100 score + upper/lower ratio bars)
+    Returns a flat dict ready to be merged into lips_data.
+    """
+    h, w = img_rgb.shape[:2]
+    mm_per_px = mm_per_px or 0.0
+
+    def get_pt(idx):
+        return pts[idx].astype(float)
+
+    empty_result = {
+        "lip_cutout_image": None,
+        "overall_shape": "N/A", "shape_explanation": "N/A",
+        "upper_lip_shape": "N/A", "lower_lip_shape": "N/A",
+        "cupids_bow_prominence": "N/A", "oral_commissures": "N/A",
+        "shape_image": None,
+        "visual_features": [],
+        "lip_color_primary_name": "N/A", "lip_color_primary_hex": None, "lip_color_palette": [],
+        "lip_smoothness_pct": None, "lip_smoothness_explanation": "N/A", "lip_texture_image": None,
+        "lip_fullness_score": None, "lip_fullness_badge_text": "N/A", "lip_fullness_badge_bg": "#f8fafc",
+        "lip_fullness_badge_color": "#64748b", "lip_fullness_ratio_text": "N/A",
+        "lip_fullness_proportion_label": "N/A", "lip_fullness_upper_bar_pct": 0, "lip_fullness_lower_bar_pct": 0,
+    }
+
+    try:
+        # ── Shared measurements ──
+        mouth_width_px = float(np.linalg.norm(get_pt(61) - get_pt(291)))
+        upper_lip_h_px = float(np.linalg.norm(get_pt(0) - get_pt(13)))
+        lower_lip_h_px = float(np.linalg.norm(get_pt(14) - get_pt(17)))
+        total_fullness_mm = (upper_lip_h_px + lower_lip_h_px) * mm_per_px
+
+        # ══ 1. LIP SHAPE ══
+        if cupid_angle is None:
+            cupids_bow_prom = "N/A"
+        elif cupid_angle < 142:
+            cupids_bow_prom = "Prominent"
+        elif cupid_angle <= 152:
+            cupids_bow_prom = "Subtle"
+        else:
+            cupids_bow_prom = "Flat"
+
+        corners_y = (get_pt(61)[1] + get_pt(291)[1]) / 2.0
+        center_y  = (get_pt(13)[1] + get_pt(14)[1]) / 2.0
+        diff_y = center_y - corners_y
+        tilt_ratio = diff_y / (mouth_width_px + 1e-9)
+        if tilt_ratio > 0.04:
+            oral_comm_shape = "Upturned"
+        elif tilt_ratio < -0.04:
+            oral_comm_shape = "Downturned"
+        else:
+            oral_comm_shape = "Straight"
+
+        upper_ratio = upper_lip_h_px / (mouth_width_px + 1e-9)
+        if upper_ratio > 0.16:
+            upper_lip_shape = "Rounded"
+        elif upper_ratio > 0.10:
+            upper_lip_shape = "Gently Sloped"
+        else:
+            upper_lip_shape = "Flat"
+
+        lower_ratio = lower_lip_h_px / (mouth_width_px + 1e-9)
+        lower_lip_shape = "Full / Curved" if lower_ratio > 0.22 else "Gently Curved"
+
+        if upper_lip_shape == "Rounded" and oral_comm_shape == "Upturned":
+            overall_shape = "Heart Shaped"
+            shape_explanation = "Your lips show expressive characteristics with a distinct upturned curvature and full, rounded upper proportions."
+        elif oral_comm_shape == "Downturned":
+            overall_shape = "Grounded"
+            shape_explanation = "Your lips have a more grounded, straight-to-downturned profile, giving a serious and strong resting expression."
+        elif upper_lip_shape == "Flat" and lower_lip_shape == "Gently Curved":
+            overall_shape = "Wide & Subtle"
+            shape_explanation = "Your lips have a wider, subtle morphology with gently sloping contours and a less pronounced cupid's bow."
+        else:
+            overall_shape = "Balanced"
+            shape_explanation = "Your lips show beautifully balanced characteristics with harmonious structural features."
+
+        # Shape annotation image (A/B/C/D dots)
+        shape_points = {"A": get_pt(267), "B": get_pt(17), "C": get_pt(0), "D": get_pt(61)}
+        img_shape = img_rgb.copy()
+        for label, pt in shape_points.items():
+            pt_int = tuple(np.int32(pt))
+            cv2.circle(img_shape, pt_int, 3, (255, 255, 255), -1)
+            cv2.putText(img_shape, label, (pt_int[0] + 8, pt_int[1] + 4),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1, cv2.LINE_AA)
+        crop_pts = np.array([get_pt(267), get_pt(17), get_pt(0), get_pt(61)], np.int32)
+        shape_image_b64 = rgb_to_b64(_lip_face_crop(img_shape, crop_pts))
+
+        # ══ 2. OTHER VISUAL FEATURES ══
+        lip_border_def = "Moderate Lip Border Definition"
+        lip_border_exp = ("Your vermilion border stays clearly visible with only mild softening at the "
+                           "corners so your mouth reads as structurally defined even with some dryness.")
+
+        if philtrum_mm is None:
+            philtrum_feat, philtrum_exp = "N/A", "N/A"
+        elif philtrum_mm < 13:
+            philtrum_feat = "Short Philtrum Length"
+            philtrum_exp = "Your philtrum length sits on the shorter side, giving your upper lip a lifted appearance and shortening the midface."
+        elif philtrum_mm <= 18:
+            philtrum_feat = "Normal Philtrum Length"
+            philtrum_exp = "Your philtrum length sits in a normal range so your upper lip does not look pulled downward or crowded under the nose in frontal or profile view."
+        else:
+            philtrum_feat = "Long Philtrum Length"
+            philtrum_exp = "Your philtrum length sits on the longer side, slightly elongating the midface and distancing the upper lip from the nasal base."
+
+        projected_feat = "Mildly Projected Lips"
+        projected_exp = "Your lips project mildly forward relative to nose and chin which prevents a flat profile while avoiding a pronounced pout."
+
+        inner_gap_px = float(np.linalg.norm(get_pt(13) - get_pt(14)))
+        inner_gap_mm = inner_gap_px * mm_per_px
+        if inner_gap_mm < 2.0:
+            teeth_feat = "No Teeth Showing At Rest"
+            teeth_exp = "Your lips meet fully with no teeth showing so your incisors stay covered and your resting expression looks composed rather than open mouth or strained."
+        else:
+            teeth_feat = "Visible Teeth At Rest"
+            teeth_exp = "Your lips naturally part at rest, displaying some incisal edge which can add a relaxed, open quality to your resting expression."
+
+        # 4 annotated feature crops
+        feature_images = []
+        upper_lip_indices = [61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291]
+        proj_indices = [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291]
+
+        img_border = img_rgb.copy()
+        upper_pts = np.array([get_pt(i) for i in upper_lip_indices], np.int32).reshape((-1, 1, 2))
+        cv2.polylines(img_border, [upper_pts], False, (255, 255, 255), 2, cv2.LINE_AA)
+        feature_images.append(rgb_to_b64(_lip_face_crop(img_border, crop_pts)))
+
+        img_phil = img_rgb.copy()
+        pt_nose = tuple(np.int32(get_pt(164)))
+        pt_lip  = tuple(np.int32(get_pt(0)))
+        cv2.line(img_phil, pt_nose, pt_lip, (255, 255, 255), 2, cv2.LINE_AA)
+        cap_w = 6
+        cv2.line(img_phil, (pt_nose[0]-cap_w, pt_nose[1]), (pt_nose[0]+cap_w, pt_nose[1]), (255, 255, 255), 2, cv2.LINE_AA)
+        cv2.line(img_phil, (pt_lip[0]-cap_w, pt_lip[1]), (pt_lip[0]+cap_w, pt_lip[1]), (255, 255, 255), 2, cv2.LINE_AA)
+        feature_images.append(rgb_to_b64(_lip_face_crop(img_phil, crop_pts)))
+
+        img_proj = img_rgb.copy()
+        proj_pts = np.array([get_pt(i) for i in proj_indices], np.int32).reshape((-1, 1, 2))
+        cv2.polylines(img_proj, [proj_pts], False, (255, 255, 255), 2, cv2.LINE_AA)
+        feature_images.append(rgb_to_b64(_lip_face_crop(img_proj, crop_pts)))
+
+        img_teeth = img_rgb.copy()
+        center_pt = tuple(np.int32((get_pt(13) + get_pt(14)) / 2))
+        for angle in range(0, 360, 30):
+            rad = np.radians(angle)
+            r = 8
+            cx = int(center_pt[0] + r * np.cos(rad))
+            cy = int(center_pt[1] + r * np.sin(rad))
+            cv2.circle(img_teeth, (cx, cy), 1, (255, 255, 255), -1, cv2.LINE_AA)
+        feature_images.append(rgb_to_b64(_lip_face_crop(img_teeth, crop_pts)))
+
+        visual_features = [
+            {"title": lip_border_def, "explanation": lip_border_exp, "image": feature_images[0]},
+            {"title": philtrum_feat,  "explanation": philtrum_exp,   "image": feature_images[1]},
+            {"title": projected_feat, "explanation": projected_exp,  "image": feature_images[2]},
+            {"title": teeth_feat,     "explanation": teeth_exp,      "image": feature_images[3]},
+        ]
+
+        # ══ 3. ISOLATED LIP CUTOUT (reused by color + texture + fullness) ══
+        outer_lip_indices = [61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291,
+                              375, 321, 405, 314, 17, 84, 181, 91, 146]
+        lip_poly = np.array([get_pt(i) for i in outer_lip_indices], np.int32)
+        mask = np.zeros((h, w), dtype=np.uint8)
+        cv2.fillPoly(mask, [lip_poly], 255)
+
+        bg_color = np.array([248, 250, 252], dtype=np.uint8)
+        lips_cutout = np.zeros_like(img_rgb)
+        lips_cutout[:] = bg_color
+        mask_bool = mask > 0
+        lips_cutout[mask_bool] = img_rgb[mask_bool]
+
+        lx, ly, lw_box, lh_box = cv2.boundingRect(lip_poly)
+        pad_x = int(lw_box * 0.4)
+        pad_y = int(lh_box * 1.5)
+        x1 = max(0, lx - pad_x); y1 = max(0, ly - pad_y)
+        x2 = min(w, lx + lw_box + pad_x); y2 = min(h, ly + lh_box + pad_y)
+        lips_cropped = lips_cutout[y1:y2, x1:x2]
+        if lips_cropped.size == 0:
+            lips_cropped = lips_cutout
+        lips_cropped_b64 = rgb_to_b64(lips_cropped)
+
+        # ══ 4. LIP COLOR (K-Means) ══
+        mask_pixels = np.any(lips_cropped != bg_color, axis=-1)
+        lip_pixels = lips_cropped[mask_pixels]
+
+        if len(lip_pixels) >= 8:
+            kmeans = KMeans(n_clusters=8, random_state=42, n_init=10)
+            kmeans.fit(lip_pixels)
+            colors = kmeans.cluster_centers_
+            counts = np.bincount(kmeans.labels_)
+            sorted_idx = np.argsort(counts)[::-1]
+            sorted_colors = colors[sorted_idx]
+
+            def rgb_to_hex(rgb):
+                return '#{:02X}{:02X}{:02X}'.format(int(rgb[0]), int(rgb[1]), int(rgb[2]))
+
+            hex_colors = [rgb_to_hex(c) for c in sorted_colors]
+            primary_color_rgb = sorted_colors[0]
+            primary_hex = hex_colors[0]
+            primary_name = get_lip_color_name(primary_color_rgb)
+        else:
+            hex_colors = []
+            primary_hex = None
+            primary_name = "N/A"
+
+        # ══ 5. LIP TEXTURE ══
+        lips_gray = cv2.cvtColor(lips_cropped, cv2.COLOR_RGB2GRAY)
+        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+        lips_enhanced = clahe.apply(lips_gray)
+        lips_colored = cv2.applyColorMap(lips_enhanced, cv2.COLORMAP_BONE)
+        lips_colored = cv2.cvtColor(lips_colored, cv2.COLOR_BGR2RGB).astype(np.float32)
+        lips_colored[:, :, 0] = np.clip(lips_colored[:, :, 0] * 0.8, 0, 255)
+        lips_colored[:, :, 1] = np.clip(lips_colored[:, :, 1] * 1.15, 0, 255)
+        lips_colored[:, :, 2] = np.clip(lips_colored[:, :, 2] * 1.25, 0, 255)
+        lips_colored = lips_colored.astype(np.uint8)
+
+        mask_2d = np.any(lips_cropped != bg_color, axis=-1)
+        texture_img = np.full_like(lips_colored, fill_value=255)
+        texture_img[mask_2d] = lips_colored[mask_2d]
+
+        y_coords, x_coords = np.where(mask_2d)
+        if len(y_coords) > 0:
+            ty_min, ty_max = int(np.min(y_coords)), int(np.max(y_coords))
+            tx_min, tx_max = int(np.min(x_coords)), int(np.max(x_coords))
+            tpad_y = int((ty_max - ty_min) * 0.5)
+            tpad_x = int((tx_max - tx_min) * 0.3)
+            ty_min = max(0, ty_min - tpad_y); ty_max = min(texture_img.shape[0], ty_max + tpad_y)
+            tx_min = max(0, tx_min - tpad_x); tx_max = min(texture_img.shape[1], tx_max + tpad_x)
+            texture_crop = texture_img[ty_min:ty_max, tx_min:tx_max]
+        else:
+            texture_crop = texture_img
+        texture_image_b64 = rgb_to_b64(texture_crop)
+
+        blurred = cv2.GaussianBlur(lips_gray, (5, 5), 0)
+        edges = cv2.Canny(blurred, 20, 80)
+        edge_pixels = int(np.sum(edges[mask_2d] > 0)) if mask_2d.any() else 0
+        total_pixels = int(np.sum(mask_2d)) if mask_2d.any() else 1
+        edge_density = edge_pixels / (total_pixels + 1e-6)
+        smoothness_score = 100 - (edge_density * 450.0)
+        smoothness_score = max(12, min(98, smoothness_score))
+        smooth_pct = int(smoothness_score)
+
+        if smooth_pct >= 85:
+            smooth_exp = "Your lips show very minimal lines with a highly uniform surface, reflecting optimal hydration and structural youthfulness."
+        elif smooth_pct >= 60:
+            smooth_exp = "Your lips show mainly fine superficial lines with a matte finish so hydration would quickly restore a smoother, softer appearing surface."
+        else:
+            smooth_exp = "Your lips show pronounced texture and deep vertical lines, indicating a degree of dryness and potential structural volume loss."
+
+        # ══ 6. LIP FULLNESS SCORE ══
+        fullness_score = int((total_fullness_mm / 26.0) * 100) if mm_per_px else 0
+        fullness_score = max(5, min(99, fullness_score))
+
+        if fullness_score < 40:
+            full_badge_text, full_badge_bg, full_badge_color = "Thin", "#fdf2f8", "#9d174d"
+        elif fullness_score < 70:
+            full_badge_text, full_badge_bg, full_badge_color = "Moderate", "#f0fdf4", "#166534"
+        else:
+            full_badge_text, full_badge_bg, full_badge_color = "Full", "#eff6ff", "#1e40af"
+
+        ratio_val = upper_lip_h_px / (lower_lip_h_px + 1e-6)
+        if ratio_val > 1.1:
+            prop_label_text = "Upper > Lower"
+        elif ratio_val < 0.9:
+            prop_label_text = "Upper < Lower"
+        else:
+            prop_label_text = "Upper = Lower"
+
+        max_lip = max(upper_lip_h_px, lower_lip_h_px)
+        upper_bar_pct = (upper_lip_h_px / max_lip) * 100 if max_lip else 0
+        lower_bar_pct = (lower_lip_h_px / max_lip) * 100 if max_lip else 0
+        if max_lip == lower_lip_h_px:
+            user_ratio_text = f"{upper_bar_pct/100:.2f} : 1.00"
+        else:
+            user_ratio_text = f"1.00 : {lower_bar_pct/100:.2f}"
+
+        return {
+            "lip_cutout_image": lips_cropped_b64,
+
+            "overall_shape": overall_shape,
+            "shape_explanation": shape_explanation,
+            "upper_lip_shape": upper_lip_shape,
+            "lower_lip_shape": lower_lip_shape,
+            "cupids_bow_prominence": cupids_bow_prom,
+            "oral_commissures": oral_comm_shape,
+            "shape_image": shape_image_b64,
+
+            "visual_features": visual_features,
+
+            "lip_color_primary_name": primary_name,
+            "lip_color_primary_hex": primary_hex,
+            "lip_color_palette": hex_colors,
+
+            "lip_smoothness_pct": smooth_pct,
+            "lip_smoothness_explanation": smooth_exp,
+            "lip_texture_image": texture_image_b64,
+
+            "lip_fullness_score": fullness_score,
+            "lip_fullness_badge_text": full_badge_text,
+            "lip_fullness_badge_bg": full_badge_bg,
+            "lip_fullness_badge_color": full_badge_color,
+            "lip_fullness_ratio_text": user_ratio_text,
+            "lip_fullness_proportion_label": prop_label_text,
+            "lip_fullness_upper_bar_pct": round(upper_bar_pct, 1),
+            "lip_fullness_lower_bar_pct": round(lower_bar_pct, 1),
+        }
+    except Exception as e:
+        print(f"[WARN] Advanced lips analysis failed: {e}")
+        return empty_result
+
+
+# ─────────────────────────────────────────────
 # Skin Analysis
 # ─────────────────────────────────────────────
 
@@ -2403,6 +2757,16 @@ def analyze_all():
         }
 
         lm_data = metrics.get("lips", {})
+
+        # ── Advanced lip analysis: shape, other visual features, color, texture, fullness ──
+        lips_advanced = analyze_lips_advanced(
+            img_rgb, pts,
+            metrics.get("meta", {}).get("mm_per_px"),
+            lm_data.get("mouth_width_mm"),
+            lm_data.get("philtrum_length_mm"),
+            lm_data.get("cupids_bow_angle_deg"),
+        )
+
         lips_data = {
             "mouth_width_mm":       _fmt(lm_data.get("mouth_width_mm")),
             "philtrum_length_mm":   _fmt(lm_data.get("philtrum_length_mm")),
@@ -2419,6 +2783,8 @@ def analyze_all():
             "lower_lip_image":       part_imgs["l_lip"]["cropped"],
             "mouth_image_white":     part_imgs["mouth"]["white_bg"],
             "mouth_image":           part_imgs["mouth"]["cropped"],
+            # advanced analysis (shape, visual features, color, texture, fullness)
+            **lips_advanced,
         }
 
         cm = metrics.get("cheeks", {})

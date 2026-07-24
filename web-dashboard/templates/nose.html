@@ -419,6 +419,28 @@
         .metric-row:hover { background:#f1f5f9; }
         .metric-label { color:var(--text-secondary); font-weight:500; }
         .metric-val { color:var(--text-primary); font-weight:600; }
+
+        /* ── New: shared section wrapper ── */
+        .section-card {
+            margin-top: 24px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+        }
+        .section-title { font-size: 20px; font-weight: 600; margin: 0 0 4px 0; }
+        .section-subtitle { font-size: 13px; color: var(--text-secondary); margin: 0 0 24px 0; }
+
+        .analysis-layout { display: grid; grid-template-columns: 1.2fr 1fr; gap: 32px; align-items: center; }
+        .analysis-layout img { width: 100%; border-radius: 12px; background:#fafafa; border:1px solid var(--border-color); }
+        .analysis-panel-value { font-size: 26px; font-weight: 700; margin-bottom: 12px; }
+        .analysis-badge { display:inline-block; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; margin-bottom: 16px; }
+        .analysis-exp { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 20px; }
+        .analysis-metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .analysis-metric-row { display:flex; justify-content:space-between; padding:10px 14px; background:#fafafa; border:1px solid var(--border-color); border-radius:8px; font-size:12px; }
+        .analysis-metric-row .label { color: var(--text-secondary); font-weight:500; }
+        .analysis-metric-row .value { color: var(--text-primary); font-weight:600; font-family: monospace; }
     </style>
 </head>
 <body>
@@ -612,6 +634,45 @@
             </div>
         </div>
 
+        <!-- Alar Flare Analysis -->
+        <div class="section-card">
+            <div class="section-title">Alar flare analysis</div>
+            <div class="section-subtitle">How the nostril wings (alar bases) sit relative to vertical lines from the inner eye corners.</div>
+            <div class="analysis-layout">
+                <img id="alarImage" src="" alt="Alar flare annotation">
+                <div>
+                    <div class="analysis-badge" id="alarBadge">--</div>
+                    <div class="analysis-panel-value" id="valAlarRatio">--</div>
+                    <p class="analysis-exp" id="valAlarExplanation">--</p>
+                    <div class="analysis-metrics-grid">
+                        <div class="analysis-metric-row"><span class="label">Alar Width</span><span class="value" id="valAlarWidth">--</span></div>
+                        <div class="analysis-metric-row"><span class="label">Eye Width</span><span class="value" id="valEyeWidth">--</span></div>
+                        <div class="analysis-metric-row"><span class="label">R Deviation</span><span class="value" id="valRDeviation">--</span></div>
+                        <div class="analysis-metric-row"><span class="label">L Deviation</span><span class="value" id="valLDeviation">--</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bridge Thickness Analysis -->
+        <div class="section-card">
+            <div class="section-title">Bridge thickness analysis</div>
+            <div class="section-subtitle">Width of the nasal sidewalls relative to the vertical span of the bridge.</div>
+            <div class="analysis-layout">
+                <img id="bridgeImage" src="" alt="Bridge thickness annotation">
+                <div>
+                    <div class="analysis-badge" id="bridgeBadge">--</div>
+                    <div class="analysis-panel-value" id="valBridgeRatio">--</div>
+                    <p class="analysis-exp" id="valBridgeExplanation">--</p>
+                    <div class="analysis-metrics-grid">
+                        <div class="analysis-metric-row"><span class="label">Upper Bridge Width</span><span class="value" id="valBridgeUpper">--</span></div>
+                        <div class="analysis-metric-row"><span class="label">Lower Bridge Width</span><span class="value" id="valBridgeLower">--</span></div>
+                        <div class="analysis-metric-row" style="grid-column: span 2;"><span class="label">Bridge Vertical Span</span><span class="value" id="valBridgeSpan">--</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 </div>
 
@@ -691,10 +752,45 @@
                 ['Height Classification',       data.height],
                 ['Tip Classification',          data.tip],
                 ['Width Classification',        data.width],
+                ['Alar Flare Ratio',            data.alar_flare_ratio],
+                ['Alar Flare Assessment',       data.alar_flare_assessment],
+                ['Bridge Thickness Ratio',      data.bridge_thickness_ratio],
+                ['Bridge Thickness Assessment', data.bridge_thickness_assessment],
             ];
             detailEl.innerHTML = rows.map(([label, val]) =>
                 `<div class="metric-row"><span class="metric-label">${label}</span><span class="metric-val">${val || 'N/A'}</span></div>`
             ).join('');
+        }
+
+        // ── Alar Flare Analysis ──
+        const alarImg = document.getElementById('alarImage');
+        if (alarImg && data.alar_flare_image) alarImg.src = data.alar_flare_image;
+        setVal('valAlarRatio', data.alar_flare_ratio);
+        setVal('valAlarExplanation', data.alar_flare_explanation);
+        setVal('valAlarWidth', data.alar_width_px != null ? data.alar_width_px + ' px' : 'N/A');
+        setVal('valEyeWidth', data.eye_width_px != null ? data.eye_width_px + ' px' : 'N/A');
+        setVal('valRDeviation', data.r_alar_deviation_px != null ? data.r_alar_deviation_px + ' px' : 'N/A');
+        setVal('valLDeviation', data.l_alar_deviation_px != null ? data.l_alar_deviation_px + ' px' : 'N/A');
+        const alarBadge = document.getElementById('alarBadge');
+        if (alarBadge) {
+            alarBadge.innerText = data.alar_flare_assessment || 'N/A';
+            alarBadge.style.background = data.alar_flare_badge_bg || '#f8fafc';
+            alarBadge.style.color = data.alar_flare_badge_color || '#64748b';
+        }
+
+        // ── Bridge Thickness Analysis ──
+        const bridgeImg = document.getElementById('bridgeImage');
+        if (bridgeImg && data.bridge_thickness_image) bridgeImg.src = data.bridge_thickness_image;
+        setVal('valBridgeRatio', data.bridge_thickness_ratio);
+        setVal('valBridgeExplanation', data.bridge_thickness_explanation);
+        setVal('valBridgeUpper', data.bridge_upper_width_px != null ? data.bridge_upper_width_px + ' px' : 'N/A');
+        setVal('valBridgeLower', data.bridge_lower_width_px != null ? data.bridge_lower_width_px + ' px' : 'N/A');
+        setVal('valBridgeSpan', data.bridge_vertical_span_px != null ? data.bridge_vertical_span_px + ' px' : 'N/A');
+        const bridgeBadge = document.getElementById('bridgeBadge');
+        if (bridgeBadge) {
+            bridgeBadge.innerText = data.bridge_thickness_assessment || 'N/A';
+            bridgeBadge.style.background = data.bridge_thickness_badge_bg || '#f8fafc';
+            bridgeBadge.style.color = data.bridge_thickness_badge_color || '#64748b';
         }
     });
 </script>

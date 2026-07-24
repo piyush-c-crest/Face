@@ -1826,6 +1826,191 @@ def analyze_cheeks_advanced(img_rgb, pts, labels):
 
 
 # ─────────────────────────────────────────────
+# Nose — Advanced Analysis
+# (alar flare, bridge thickness)
+# Mirrors nose_extraction_cleaned.ipynb
+# ─────────────────────────────────────────────
+
+def _catmull_rom_spline(points, n_points=100):
+    """Smooth a closed polygon through its corner points using a Catmull-Rom spline."""
+    points = np.array(points, dtype=np.float32)
+    p = np.vstack([points[-1], points, points[0], points[1]])  # wrap for closed curve
+    curve = []
+    for i in range(1, len(p) - 2):
+        p0, p1, p2, p3 = p[i - 1], p[i], p[i + 1], p[i + 2]
+        for t in np.linspace(0, 1, max(n_points // len(points), 1), endpoint=False):
+            t2, t3 = t * t, t * t * t
+            pt = 0.5 * (
+                (2 * p1)
+                + (-p0 + p2) * t
+                + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2
+                + (-p0 + 3 * p1 - 3 * p2 + p3) * t3
+            )
+            curve.append(pt)
+    return np.array(curve, dtype=np.int32)
+
+
+def _nose_region_crop(img_rgb, crop_pts, pad_mult=1.0):
+    """Crop a region around a set of landmark points with proportional padding."""
+    h, w = img_rgb.shape[:2]
+    x, y, w_box, h_box = cv2.boundingRect(np.array(crop_pts, dtype=np.int32))
+    pad_x = int(w_box * pad_mult)
+    pad_y = int(h_box * pad_mult)
+    x1 = max(0, x - pad_x)
+    y1 = max(0, y - pad_y)
+    x2 = min(w, x + w_box + pad_x)
+    y2 = min(h, y + h_box + pad_y)
+    crop = img_rgb[y1:y2, x1:x2]
+    return crop if crop.size else img_rgb
+
+
+def analyze_nose_advanced(img_rgb, pts):
+    """
+    Extended nose analysis mirroring nose_extraction_cleaned.ipynb:
+      1. Alar Flare Analysis    - alar base width vs. inner-canthal (eye) width
+      2. Bridge Thickness       - upper/lower nasal sidewall width vs. bridge span
+    Returns a flat dict ready to be merged into nose_data.
+    """
+    h, w = img_rgb.shape[:2]
+
+    def get_pt(idx):
+        return pts[idx].astype(np.float32)
+
+    empty_result = {
+        "alar_flare_ratio": None, "alar_flare_assessment": "N/A",
+        "alar_width_px": None, "eye_width_px": None,
+        "r_alar_deviation_px": None, "l_alar_deviation_px": None,
+        "alar_flare_explanation": "N/A", "alar_flare_image": None,
+        "alar_flare_badge_bg": "#f8fafc", "alar_flare_badge_color": "#64748b",
+
+        "bridge_thickness_ratio": None, "bridge_thickness_assessment": "N/A",
+        "bridge_upper_width_px": None, "bridge_lower_width_px": None,
+        "bridge_vertical_span_px": None, "bridge_thickness_explanation": "N/A",
+        "bridge_thickness_image": None,
+        "bridge_thickness_badge_bg": "#f8fafc", "bridge_thickness_badge_color": "#64748b",
+    }
+
+    try:
+        # Landmark indices (MediaPipe Face Mesh)
+        NOSE_TIP, NOSE_BRIDGE, SUBNASALE, GLABELLA = 4, 168, 2, 9
+        R_ALA, L_ALA = 129, 358
+        R_INNER_CANTHUS, L_INNER_CANTHUS = 133, 362
+        UPPER_LEFT, UPPER_RIGHT = 193, 417
+        LOWER_RIGHT, LOWER_LEFT = 456, 236
+
+        # ══ 1. ALAR FLARE ANALYSIS ══
+        p_r_ala, p_l_ala = get_pt(R_ALA), get_pt(L_ALA)
+        p_nose_tip = get_pt(NOSE_TIP)
+        p_r_eye, p_l_eye = get_pt(R_INNER_CANTHUS), get_pt(L_INNER_CANTHUS)
+
+        eye_vertical_distance = float(abs(p_r_eye[0] - p_l_eye[0]))
+        alar_distance = float(abs(p_r_ala[0] - p_l_ala[0]))
+        r_alar_deviation = float(p_r_ala[0] - p_r_eye[0])
+        l_alar_deviation = float(p_l_eye[0] - p_l_ala[0])
+        alar_flare_ratio = alar_distance / (eye_vertical_distance + 1e-9)
+
+        if alar_flare_ratio < 0.95:
+            alar_assessment = "No Alar Flare"
+            alar_color = (34, 197, 94)   # green
+            alar_badge_bg, alar_badge_color = "#f0fdf4", "#166534"
+            alar_explanation = ("Your alar bases stay close to vertical lines from the inner eye corners so "
+                                 "the base does not widen laterally and the nostril wings do not dominate the "
+                                 "lower face.")
+        elif alar_flare_ratio < 1.1:
+            alar_assessment = "Mild Alar Flare"
+            alar_color = (249, 115, 22)  # orange
+            alar_badge_bg, alar_badge_color = "#fff7ed", "#c2410c"
+            alar_explanation = ("Your alar bases sit slightly outside the vertical lines from the inner eye "
+                                 "corners, giving the nostril wings a bit more lateral presence without "
+                                 "overwhelming the lower face.")
+        else:
+            alar_assessment = "Significant Alar Flare"
+            alar_color = (239, 68, 68)   # red
+            alar_badge_bg, alar_badge_color = "#fef2f2", "#b91c1c"
+            alar_explanation = ("Your alar bases extend noticeably beyond the vertical lines from the inner "
+                                 "eye corners, widening the nasal base and giving the nostril wings a more "
+                                 "dominant role in the lower face.")
+
+        r_radius = max(int(np.linalg.norm(p_r_ala - p_nose_tip) * 0.2), 7)
+        l_radius = max(int(np.linalg.norm(p_l_ala - p_nose_tip) * 0.2), 7)
+
+        img_alar = img_rgb.copy()
+        cv2.circle(img_alar, tuple(np.int32(p_r_ala)), r_radius, alar_color, 2, cv2.LINE_AA)
+        cv2.circle(img_alar, tuple(np.int32(p_l_ala)), l_radius, alar_color, 2, cv2.LINE_AA)
+
+        alar_crop_pts = np.array([p_r_eye, p_l_eye, p_nose_tip, get_pt(SUBNASALE), p_r_ala, p_l_ala])
+        alar_image_b64 = rgb_to_b64(_nose_region_crop(img_alar, alar_crop_pts, pad_mult=0.9))
+
+        # ══ 2. BRIDGE THICKNESS ANALYSIS ══
+        p_ul, p_ur = get_pt(UPPER_LEFT), get_pt(UPPER_RIGHT)
+        p_lr, p_ll = get_pt(LOWER_RIGHT), get_pt(LOWER_LEFT)
+        p_bridge, p_glabella = get_pt(NOSE_BRIDGE), get_pt(GLABELLA)
+
+        upper_width = float(np.linalg.norm(p_ul - p_ur))
+        lower_width = float(np.linalg.norm(p_ll - p_lr))
+        bridge_span = float(np.linalg.norm(p_glabella - p_bridge)) + 1e-9
+        thickness_ratio = ((upper_width + lower_width) / 2.0) / bridge_span
+
+        if thickness_ratio < 0.55:
+            bridge_assessment = "Thin Bridge"
+            bridge_badge_bg, bridge_badge_color = "#fff7ed", "#c2410c"
+            bridge_explanation = ("Your bridge sits on the narrower side so the nasal dorsum reads as bony and "
+                                   "well-defined, with minimal soft tissue padding along the midline.")
+        elif thickness_ratio <= 0.85:
+            bridge_assessment = "Normal Bridge Thickness"
+            bridge_badge_bg, bridge_badge_color = "#f0fdf4", "#166534"
+            bridge_explanation = ("Your bridge thickness sits in a normal range so the subtle hump reads "
+                                   "clearly without looking either bony-thin or padded and the midline feels "
+                                   "structurally firm.")
+        else:
+            bridge_assessment = "Wide / Padded Bridge"
+            bridge_badge_bg, bridge_badge_color = "#fff7ed", "#c2410c"
+            bridge_explanation = ("Your bridge sits on the wider side, giving the nasal dorsum a fuller, more "
+                                   "padded appearance along the midline.")
+
+        pad_x, pad_top, pad_bottom = 6, 10, 6
+        corners = [
+            p_ul + np.array([-pad_x, -pad_top], dtype=np.float32),
+            p_ur + np.array([pad_x, -pad_top], dtype=np.float32),
+            p_lr + np.array([pad_x, pad_bottom], dtype=np.float32),
+            p_ll + np.array([-pad_x, pad_bottom], dtype=np.float32),
+        ]
+        smooth_curve = _catmull_rom_spline(corners, n_points=120)
+
+        img_bridge = img_rgb.copy()
+        cv2.polylines(img_bridge, [smooth_curve], isClosed=True, color=(255, 255, 255), thickness=2, lineType=cv2.LINE_AA)
+
+        bridge_crop_pts = np.array([p_glabella, p_ul, p_ur, p_lr, p_ll, p_nose_tip])
+        bridge_image_b64 = rgb_to_b64(_nose_region_crop(img_bridge, bridge_crop_pts, pad_mult=1.1))
+
+        return {
+            "alar_flare_ratio": round(alar_flare_ratio, 3),
+            "alar_flare_assessment": alar_assessment,
+            "alar_width_px": round(alar_distance, 1),
+            "eye_width_px": round(eye_vertical_distance, 1),
+            "r_alar_deviation_px": round(r_alar_deviation, 1),
+            "l_alar_deviation_px": round(l_alar_deviation, 1),
+            "alar_flare_explanation": alar_explanation,
+            "alar_flare_image": alar_image_b64,
+            "alar_flare_badge_bg": alar_badge_bg,
+            "alar_flare_badge_color": alar_badge_color,
+
+            "bridge_thickness_ratio": round(thickness_ratio, 3),
+            "bridge_thickness_assessment": bridge_assessment,
+            "bridge_upper_width_px": round(upper_width, 1),
+            "bridge_lower_width_px": round(lower_width, 1),
+            "bridge_vertical_span_px": round(bridge_span, 1),
+            "bridge_thickness_explanation": bridge_explanation,
+            "bridge_thickness_image": bridge_image_b64,
+            "bridge_thickness_badge_bg": bridge_badge_bg,
+            "bridge_thickness_badge_color": bridge_badge_color,
+        }
+    except Exception as e:
+        print(f"[WARN] Advanced nose analysis failed: {e}")
+        return empty_result
+
+
+# ─────────────────────────────────────────────
 # Skin Analysis
 # ─────────────────────────────────────────────
 
@@ -2975,6 +3160,10 @@ def analyze_all():
         }
 
         nm = metrics.get("nose", {})
+
+        # ── Advanced nose analysis: alar flare, bridge thickness ──
+        nose_advanced = analyze_nose_advanced(img_rgb, pts)
+
         nose_data = {
             "nasal_width_mm":              _fmt(nm.get("nasal_width_mm")),
             "nasal_height_mm":             _fmt(nm.get("nasal_height_mm")),
@@ -2989,6 +3178,8 @@ def analyze_all():
             # images (nose=2)
             "nose_image_white": part_imgs["nose"]["white_bg"],
             "nose_image":       part_imgs["nose"]["cropped"],
+            # advanced analysis (alar flare, bridge thickness)
+            **nose_advanced,
         }
 
         lm_data = metrics.get("lips", {})

@@ -3176,7 +3176,7 @@ def analyze_smile_image(img_rgb):
         roi_lab = cv2.cvtColor(roi_bgr, cv2.COLOR_BGR2Lab)
         roi_hsv = cv2.cvtColor(roi_bgr, cv2.COLOR_BGR2HSV)
 
-        # Teeth: bright (L > 140/255), low saturation (S < 80/255)
+        # ── Teeth metrics (brightness + low saturation) ──
         L = roi_lab[:, :, 0].astype(np.float32)
         S = roi_hsv[:, :, 1].astype(np.float32)
         teeth_mask = ((L > 140) & (S < 80)).astype(np.uint8) * 255
@@ -3194,11 +3194,41 @@ def analyze_smile_image(img_rgb):
             lab_l_vals = roi_lab[:, :, 0][teeth_mask > 0].astype(np.float32)
             mean_l = round(float(lab_l_vals.mean()) * 100.0 / 255.0, 2)
 
-        cropped_b64  = rgb_to_b64(mouth_roi)
-        white_bg_arr = np.ones_like(mouth_roi, dtype=np.uint8) * 255
-        mask3        = cv2.cvtColor(teeth_mask, cv2.COLOR_GRAY2RGB)
-        teeth_on_white = np.where(mask3 > 0, mouth_roi, white_bg_arr)
-        white_b64 = rgb_to_b64(teeth_on_white)
+        # ── Raw cropped smile (upper lip + teeth + lower lip) ──
+        cropped_b64 = rgb_to_b64(mouth_roi)
+
+        # ── White-BG image: full mouth polygon (lips + teeth), NOT just teeth pixels ──
+        # Translate the global MOUTH_OUTER points into ROI-local coordinates
+        pts_local = pts_m - np.array([x1, y1], dtype=np.int32)
+        # Also include lip-border landmarks (upper & lower lip inner ring)
+        MOUTH_FULL = [
+            # outer corners + upper lip outer
+            61, 185, 40, 39, 37, 0, 267, 269, 270, 409,
+            # outer corners + lower lip outer
+            291, 375, 321, 405, 314, 17, 84, 181, 91, 146,
+            # upper lip inner
+            78, 191, 80, 81, 82, 13, 312, 311, 310, 415, 308,
+            # lower lip inner
+            95, 88, 178, 87, 14, 317, 402, 318, 324,
+        ]
+        pts_full_global = np.array([[int(lms[i].x * w), int(lms[i].y * h)]
+                                     for i in MOUTH_FULL], dtype=np.int32)
+        pts_full_local = pts_full_global - np.array([x1, y1], dtype=np.int32)
+        # Clip to ROI bounds
+        roi_h, roi_w = mouth_roi.shape[:2]
+        pts_full_local[:, 0] = np.clip(pts_full_local[:, 0], 0, roi_w - 1)
+        pts_full_local[:, 1] = np.clip(pts_full_local[:, 1], 0, roi_h - 1)
+
+        # Build convex-hull mask of the full smile polygon
+        hull = cv2.convexHull(pts_full_local)
+        mouth_poly_mask = np.zeros((roi_h, roi_w), dtype=np.uint8)
+        cv2.fillPoly(mouth_poly_mask, [hull], 255)
+
+        # Composite: mouth pixels inside polygon, white outside
+        white_bg_arr  = np.ones_like(mouth_roi, dtype=np.uint8) * 255
+        poly_mask3    = cv2.cvtColor(mouth_poly_mask, cv2.COLOR_GRAY2RGB)
+        smile_on_white = np.where(poly_mask3 > 0, mouth_roi, white_bg_arr)
+        white_b64 = rgb_to_b64(smile_on_white)
 
         return {
             "teeth_exposure_ratio":  exposure_ratio,

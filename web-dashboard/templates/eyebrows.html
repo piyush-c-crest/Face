@@ -455,6 +455,289 @@
         .metric-row:hover { background: #f1f5f9; }
         .metric-label { color: var(--text-secondary); font-weight: 500; }
         .metric-val { color: var(--text-primary); font-weight: 600; }
+
+        /* ── EXTENDED ANALYSIS (from eyebrow_analysis.ipynb) ── */
+        .section-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 28px;
+            margin-top: 24px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+        }
+        .section-title {
+            font-size: 26px;
+            font-weight: 600;
+            margin: 0 0 8px 0;
+            letter-spacing: -0.3px;
+        }
+        .section-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin: 0 0 24px 0;
+            line-height: 1.5;
+        }
+        .section-subtitle strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        /* Shape detail: image + 2x2 attribute grid */
+        .shape-detail-layout {
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            gap: 28px;
+            align-items: start;
+        }
+        .shape-detail-img {
+            width: 100%;
+            border-radius: 10px;
+            background: #fafafa;
+            border: 1px solid #f1f5f9;
+        }
+        .attr-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+        .attr-box {
+            background: #fbfcfd;
+            border: 1px solid #f0f4f7;
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .attr-label {
+            font-family: monospace;
+            font-size: 10px;
+            color: var(--text-highlight);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .attr-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .explanation-box {
+            grid-column: 1 / -1;
+            background: #fbfcfd;
+            border: 1px solid #f0f4f7;
+            border-radius: 8px;
+            padding: 16px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* ── Other Visual Features: 2×2 grid + face photo ── */
+        .vis-features-layout {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 28px;
+            align-items: start;
+        }
+        .vis-features-left {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+        .vis-card-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 0;
+        }
+        .vis-card {
+            padding: 20px 18px 18px 18px;
+            border: 1px solid var(--border-color);
+            margin: -0.5px;
+            background: #fbfcfd;
+            cursor: pointer;
+            transition: background 0.18s, box-shadow 0.18s;
+        }
+        .vis-card:hover {
+            background: #f4f7fa;
+        }
+        .vis-card.active {
+            background: #eef2f7;
+            box-shadow: inset 0 0 0 2px #b0bec5;
+            z-index: 1;
+        }
+        .vis-card-img-thumb {
+            width: 100%;
+            height: 72px;
+            object-fit: contain;
+            border-radius: 6px;
+            background: #f0f4f8;
+            margin-bottom: 10px;
+            display: block;
+        }
+        .vis-card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            line-height: 1.4;
+        }
+        .vis-explanation-box {
+            border: 1px solid #f0f4f7;
+            border-radius: 0 0 10px 10px;
+            border-top: none;
+            background: #fbfcfd;
+            padding: 16px 18px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            min-height: 56px;
+        }
+        .vis-features-right img {
+            width: 100%;
+            border-radius: 10px;
+            border: 1px solid #f1f5f9;
+            display: block;
+            background: #fafafa;
+        }
+        @media (max-width: 900px) {
+            .vis-features-layout { grid-template-columns: 1fr; }
+        }
+
+        /* Density gauge */
+        .density-layout {
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            gap: 28px;
+            align-items: center;
+        }
+        .density-img {
+            width: 100%;
+            border-radius: 10px;
+            background: #fbfcfd;
+            border: 1px solid #f1f5f9;
+        }
+        .gauge-track {
+            position: relative;
+            height: 8px;
+            background: var(--bar-bg);
+            border-radius: 4px;
+            margin: 20px 0 10px 0;
+        }
+        .gauge-fill {
+            position: absolute;
+            top: 0; left: 0; height: 100%;
+            background: linear-gradient(90deg, #cbd5e1, #64748b);
+            border-radius: 4px;
+            transition: width 0.6s ease-out;
+        }
+        .gauge-marker {
+            position: absolute;
+            top: -6px;
+            width: 3px;
+            height: 20px;
+            background: var(--marker-color);
+            transform: translateX(-50%);
+            transition: left 0.6s ease-out;
+        }
+        .gauge-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--text-highlight);
+            font-weight: 600;
+        }
+        .density-score-val {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .density-score-val span {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        /* Color scale */
+        .color-layout {
+            display: grid;
+            grid-template-columns: 1fr 260px;
+            gap: 28px;
+            align-items: center;
+        }
+        .color-swatch-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .color-swatch {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+        }
+        .color-name-text {
+            font-size: 20px;
+            font-weight: 600;
+        }
+        .color-scale-bar {
+            display: flex;
+            flex-direction: column-reverse;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #f0f4f7;
+        }
+        .color-scale-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+        .color-scale-row.current {
+            outline: 2px solid var(--text-primary);
+            outline-offset: -2px;
+            font-weight: 700;
+        }
+        .color-scale-swatch {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+
+        /* Symmetry */
+        .symmetry-layout {
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            gap: 28px;
+            align-items: center;
+        }
+        .symmetry-img {
+            width: 100%;
+            border-radius: 10px;
+            background: #fafafa;
+            border: 1px solid #f1f5f9;
+        }
+        .symmetry-score-badge {
+            display: inline-block;
+            font-size: 16px;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 20px;
+            background: #f8fafc;
+            border: 1px solid var(--border-color);
+            margin-bottom: 12px;
+        }
+
+        @media (max-width: 900px) {
+            .shape-detail-layout, .tab-selector-layout, .density-layout, .color-layout, .symmetry-layout {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
@@ -669,6 +952,102 @@
             </div>
         </div>
 
+        <!-- ══ Eyebrow Shape Detail ══ -->
+        <div class="section-card">
+            <div class="section-title">Your eyebrow <span style="color:var(--text-highlight);">shape</span></div>
+            <p class="section-subtitle">A closer look at brow thickness, peak sharpness, and how the inner and tail segments angle relative to the peak.</p>
+            <div class="shape-detail-layout">
+                <img id="shapeDetailImage" class="shape-detail-img" src="" alt="Eyebrow shape overlay">
+                <div class="attr-grid">
+                    <div class="attr-box">
+                        <div class="attr-label">Brow Thickness [A]</div>
+                        <div class="attr-value" id="valShapeThickness">--</div>
+                    </div>
+                    <div class="attr-box">
+                        <div class="attr-label">Brow Peak [B]</div>
+                        <div class="attr-value" id="valShapePeak">--</div>
+                    </div>
+                    <div class="attr-box">
+                        <div class="attr-label">Inner Brow Angle [C]</div>
+                        <div class="attr-value" id="valShapeInner">--</div>
+                    </div>
+                    <div class="attr-box">
+                        <div class="attr-label">Brow Tail Angle [D]</div>
+                        <div class="attr-value" id="valShapeTail">--</div>
+                    </div>
+                    <div class="explanation-box" id="shapeDetailExplanation">--</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══ Other Visual Features — 2×2 grid + face photo ══ -->
+        <div class="section-card">
+            <div class="section-title">Other <span style="color:var(--text-highlight);">visual features</span> around your eyebrows</div>
+            <p class="section-subtitle">The <strong style="color:var(--text-primary);">subtle</strong> details of your brows that make them unique.</p>
+            <div class="vis-features-layout">
+                <!-- Left: 2×2 card grid + explanation -->
+                <div class="vis-features-left">
+                    <div class="vis-card-grid" id="visCardGrid">
+                        <!-- populated by JS -->
+                    </div>
+                    <div class="vis-explanation-box" id="visExplanationBox">--</div>
+                </div>
+                <!-- Right: face photo -->
+                <div class="vis-features-right">
+                    <img id="featureTabImage" src="" alt="Feature overlay">
+                </div>
+            </div>
+        </div>
+
+        <!-- ══ Eyebrow Density ══ -->
+        <div class="section-card">
+            <div class="section-title">Eyebrow <span style="color:var(--text-highlight);">density</span></div>
+            <p class="section-subtitle">Estimated hair concentration within the brow region, scored from 0 (sparse) to 100 (dense).</p>
+            <div class="density-layout">
+                <img id="densityImage" class="density-img" src="" alt="Eyebrow density cutout">
+                <div>
+                    <div class="density-score-val"><span id="valDensityText">--</span> &nbsp; <span id="valDensityScore">--</span><span>/100</span></div>
+                    <div class="gauge-track">
+                        <div class="gauge-fill" id="densityGaugeFill" style="width:0%;"></div>
+                        <div class="gauge-marker" id="densityGaugeMarker" style="left:0%;"></div>
+                    </div>
+                    <div class="gauge-labels"><div>Sparse</div><div>Medium</div><div>Dense</div></div>
+                    <div class="explanation-box" style="margin-top:16px;" id="densityExplanation">--</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══ Eyebrow Color ══ -->
+        <div class="section-card">
+            <div class="section-title">Your eyebrows are</div>
+            <div class="color-layout">
+                <div>
+                    <div class="color-swatch-row">
+                        <div class="color-swatch" id="colorSwatch" style="background:#3a261c;"></div>
+                        <div class="color-name-text" id="valColorName">--</div>
+                    </div>
+                    <div class="explanation-box" id="colorExplanation">--</div>
+                </div>
+                <div class="color-scale-bar" id="colorScaleBar">
+                    <!-- populated by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- ══ Eyebrow Symmetry ══ -->
+        <div class="section-card">
+            <div class="section-title">Your eyebrow <span style="color:var(--text-highlight);">symmetry</span></div>
+            <p class="section-subtitle">Eyebrow symmetry is one of the first things people notice, being central on the face.</p>
+            <div class="symmetry-layout">
+                <img id="symmetryImage" class="symmetry-img" src="" alt="Face crop for symmetry">
+                <div>
+                    <div class="symmetry-score-badge" id="valSymmetryStatus">--</div>
+                    <div class="explanation-box" id="symmetryExplanation">--</div>
+                    <svg id="symmetryChart" viewBox="0 0 400 160" style="width:100%; margin-top:16px; background:#fbfcfd; border:1px solid #f0f4f7; border-radius:8px;"></svg>
+                </div>
+            </div>
+        </div>
+
     </div>
 </div>
 
@@ -767,6 +1146,101 @@
             detailEl.innerHTML = rows.map(([label, val]) =>
                 `<div class="metric-row"><span class="metric-label">${label}</span><span class="metric-val">${val || 'N/A'}</span></div>`
             ).join('');
+        }
+
+        // ── Shape Detail ──
+        setVal('valShapeThickness', data.shape_thickness);
+        setVal('valShapePeak',      data.shape_peak_type);
+        setVal('valShapeInner',     data.shape_inner_angle_class);
+        setVal('valShapeTail',      data.shape_tail_angle_class);
+        setVal('shapeDetailExplanation', data.shape_detail_explanation);
+        const shapeImg = document.getElementById('shapeDetailImage');
+        if (shapeImg) shapeImg.src = data.shape_detail_image || '';
+
+        // ── Other Visual Features: 2×2 interactive card grid ──
+        const features = Array.isArray(data.other_features) ? data.other_features : [];
+        const visGrid = document.getElementById('visCardGrid');
+        const visExp  = document.getElementById('visExplanationBox');
+        const tabImage = document.getElementById('featureTabImage');
+
+        if (visGrid && features.length) {
+            let activeVisIdx = 0;
+
+            function renderVisCards(activeIdx) {
+                visGrid.innerHTML = features.map((f, i) => `
+                    <div class="vis-card ${i === activeIdx ? 'active' : ''}" data-idx="${i}">
+                        <div class="vis-card-title">${f.title || 'N/A'}</div>
+                    </div>
+                `).join('');
+
+                visGrid.querySelectorAll('.vis-card').forEach(el => {
+                    el.addEventListener('click', () => {
+                        activeVisIdx = parseInt(el.getAttribute('data-idx'), 10);
+                        renderVisCards(activeVisIdx);
+                        if (tabImage) tabImage.src = features[activeVisIdx].image || '';
+                        if (visExp)   visExp.innerText = features[activeVisIdx].explanation || '';
+                    });
+                });
+            }
+
+            renderVisCards(0);
+            if (tabImage) tabImage.src = features[0].image || '';
+            if (visExp)   visExp.innerText = features[0].explanation || '';
+        }
+
+        // ── Density ──
+        const densityScore = (data.density_score !== undefined && data.density_score !== null) ? parseFloat(data.density_score) : null;
+        setVal('valDensityText', data.density_text);
+        setVal('valDensityScore', densityScore !== null ? densityScore : 'N/A');
+        setVal('densityExplanation', data.density_explanation);
+        const densityImgEl = document.getElementById('densityImage');
+        if (densityImgEl) densityImgEl.src = data.density_image || '';
+        if (densityScore !== null) {
+            const pct = Math.max(0, Math.min(100, densityScore));
+            document.getElementById('densityGaugeFill').style.width = `${pct}%`;
+            document.getElementById('densityGaugeMarker').style.left = `${pct}%`;
+        }
+
+        // ── Color ──
+        setVal('valColorName', data.color_name);
+        setVal('colorExplanation', data.color_explanation);
+        const swatch = document.getElementById('colorSwatch');
+        if (swatch && data.color_hex) swatch.style.background = data.color_hex;
+        const palette = Array.isArray(data.color_palette) ? data.color_palette : [];
+        const scaleBar = document.getElementById('colorScaleBar');
+        if (scaleBar && palette.length) {
+            scaleBar.innerHTML = palette.map(c => `
+                <div class="color-scale-row ${c.name === data.color_name ? 'current' : ''}" style="background:${c.name === data.color_name ? '#ffffff' : '#fbfcfd'};">
+                    <span>${c.name}${c.name === data.color_name ? ' — YOU' : ''}</span>
+                    <span class="color-scale-swatch" style="background:${c.hex};"></span>
+                </div>
+            `).join('');
+        }
+
+        // ── Symmetry ──
+        setVal('valSymmetryStatus', data.symmetry_status);
+        setVal('symmetryExplanation', data.symmetry_explanation);
+        const symImgEl = document.getElementById('symmetryImage');
+        if (symImgEl) symImgEl.src = data.symmetry_image || '';
+
+        const leftPts = Array.isArray(data.symmetry_left_points) ? data.symmetry_left_points : [];
+        const rightPts = Array.isArray(data.symmetry_right_points) ? data.symmetry_right_points : [];
+        const chart = document.getElementById('symmetryChart');
+        if (chart && (leftPts.length || rightPts.length)) {
+            const allPts = leftPts.concat(rightPts);
+            const xs = allPts.map(p => p[0]), ys = allPts.map(p => p[1]);
+            const minX = Math.min(...xs), maxX = Math.max(...xs);
+            const minY = Math.min(...ys), maxY = Math.max(...ys);
+            const padPx = 20, W = 400, H = 160;
+            const sx = v => padPx + ((v - minX) / ((maxX - minX) || 1)) * (W - 2 * padPx);
+            const sy = v => padPx + ((v - minY) / ((maxY - minY) || 1)) * (H - 2 * padPx);
+            const toPath = pts => pts.map(p => `${sx(p[0])},${sy(p[1])}`).join(' ');
+            chart.innerHTML = `
+                <polygon points="${toPath(rightPts)}" fill="#90a4ae" fill-opacity="0.4" stroke="#546e7a" stroke-width="1.5" />
+                <polygon points="${toPath(leftPts)}" fill="#cfd8dc" fill-opacity="0.4" stroke="#78909c" stroke-width="1.5" />
+                <text x="8" y="16" font-size="11" fill="#78909c" font-weight="600">Inner</text>
+                <text x="392" y="16" font-size="11" fill="#78909c" font-weight="600" text-anchor="end">Tail</text>
+            `;
         }
     });
 </script>

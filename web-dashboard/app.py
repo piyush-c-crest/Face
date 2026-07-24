@@ -1865,6 +1865,352 @@ def _nose_region_crop(img_rgb, crop_pts, pad_mult=1.0):
     return crop if crop.size else img_rgb
 
 
+def analyze_eyebrow_advanced(img_rgb, pts):
+    """
+    Extended eyebrow analysis mirroring eyebrow_analysis.ipynb:
+      1. Shape Detail     - thickness, peak type, inner/tail angle classification
+      2. Other Visual Features - unibrow / tail length / edge softness / inner-brow spacing
+                                  (four tab-switchable overlay images)
+      3. Density          - adaptive-threshold hair density score + cutout image
+      4. Color            - dominant brow hair color bucket vs. a reference palette
+      5. Symmetry         - left/right shape comparison score
+    Returns a flat dict ready to be merged into eyebrows_data.
+    """
+    h, w = img_rgb.shape[:2]
+
+    def get_pt(idx):
+        return pts[idx].astype(np.float32)
+
+    LC = (255, 255, 255)
+
+    empty_result = {
+        "shape_thickness": "N/A", "shape_peak_type": "N/A",
+        "shape_inner_angle_class": "N/A", "shape_tail_angle_class": "N/A",
+        "shape_overall": "N/A", "shape_detail_explanation": "N/A", "shape_detail_image": None,
+
+        "other_features": [],
+
+        "density_score": None, "density_text": "N/A",
+        "density_explanation": "N/A", "density_image": None,
+
+        "color_name": "N/A", "color_hex": "#3a261c",
+        "color_explanation": "N/A", "color_palette": [],
+
+        "symmetry_score": None, "symmetry_status": "N/A", "symmetry_explanation": "N/A",
+        "symmetry_left_points": [], "symmetry_right_points": [], "symmetry_image": None,
+    }
+
+    try:
+        def _dotted_poly(img, p_list, color=LC, thickness=2):
+            p_list = np.array(p_list, dtype=np.float32)
+            for i in range(len(p_list) - 1):
+                p1, p2 = p_list[i], p_list[i + 1]
+                seg_len = float(np.linalg.norm(p2 - p1))
+                steps = max(1, int(seg_len))
+                seg = [p1 + t * (p2 - p1) for t in np.linspace(0, 1, steps, endpoint=False)]
+                for j in range(0, len(seg) - 1, 2):
+                    cv2.line(img, tuple(np.int32(seg[j])), tuple(np.int32(seg[j + 1])), color, thickness, cv2.LINE_AA)
+
+        def _dotted_line(img, p1, p2, color=LC, thickness=2):
+            _dotted_poly(img, [p1, p2], color=color, thickness=thickness)
+
+        def _dotted_circle(img, center, radius, color=LC, thickness=2):
+            n = max(8, int(2 * np.pi * radius))
+            angles = np.linspace(0, 2 * np.pi, n)
+            seg = [center + radius * np.array([np.cos(a), np.sin(a)]) for a in angles]
+            for j in range(0, len(seg) - 1, 2):
+                cv2.line(img, tuple(np.int32(seg[j])), tuple(np.int32(seg[j + 1])), color, thickness, cv2.LINE_AA)
+
+        eye_width_r = float(np.linalg.norm(get_pt(133) - get_pt(33)))
+        eye_width_l = float(np.linalg.norm(get_pt(362) - get_pt(263)))
+        eye_width = (eye_width_r + eye_width_l) / 2.0
+
+        # ══ 1. SHAPE DETAIL ══
+        r_inner, r_outer, r_peak = get_pt(107), get_pt(156), get_pt(105)
+        l_inner, l_outer, l_peak = get_pt(336), get_pt(383), get_pt(334)
+
+        r_thick = float(np.linalg.norm(get_pt(105) - get_pt(52)))
+        l_thick = float(np.linalg.norm(get_pt(334) - get_pt(282)))
+        thick_ratio = ((r_thick + l_thick) / 2.0) / (eye_width + 1e-9)
+        thickness = "Thick" if thick_ratio > 0.15 else ("Thin" if thick_ratio < 0.08 else "Medium")
+
+        def calc_angle(apex, p1, p2):
+            v1, v2 = p1 - apex, p2 - apex
+            n1, n2 = np.linalg.norm(v1), np.linalg.norm(v2)
+            if n1 == 0 or n2 == 0:
+                return 180.0
+            cos_a = np.clip(np.dot(v1, v2) / (n1 * n2), -1.0, 1.0)
+            return float(np.degrees(np.arccos(cos_a)))
+
+        avg_angle = (calc_angle(r_peak, r_inner, r_outer) + calc_angle(l_peak, l_inner, l_outer)) / 2.0
+        peak_type = "Sharp Peak" if avg_angle < 130 else ("Sloped Peak" if avg_angle < 155 else "Flat")
+
+        inner_drop = r_inner[1] - r_peak[1]
+        outer_drop = r_outer[1] - r_peak[1]
+        inner_angle_class = "Downturned" if inner_drop > 10 else "Straight"
+        tail_angle_class = "Downturned" if outer_drop > 10 else "Straight"
+        shape_overall = "Arched" if avg_angle < 150 else "Straight"
+
+        turn_phrase = "turn down slightly" if (inner_angle_class == "Downturned" or tail_angle_class == "Downturned") else "stay level"
+        arch_phrase = "strong but not overly sharp" if shape_overall == "Arched" else "clean and understated"
+        shape_detail_explanation = (
+            f"Your brows are {thickness.lower()} and clearly {shape_overall.lower()} with a smooth "
+            f"{peak_type.lower()} and both inner and outer segments that {turn_phrase} so the arch looks {arch_phrase}."
+        )
+
+        r_in_top, r_in_bot = get_pt(107), get_pt(55)
+        r_pk_top, r_pk_bot = get_pt(105), get_pt(52)
+        l_in_top, l_in_bot = get_pt(336), get_pt(285)
+        l_pk_top, l_pk_bot = get_pt(293), get_pt(283)
+
+        img_shape = img_rgb.copy()
+        _dotted_poly(img_shape, [r_in_top, r_pk_top, r_outer])
+        _dotted_poly(img_shape, [r_in_bot, r_pk_bot, r_outer])
+        _dotted_poly(img_shape, [r_in_top, r_in_bot])
+        _dotted_poly(img_shape, [r_pk_top, r_pk_bot])
+        _dotted_poly(img_shape, [l_in_top, l_pk_top, l_outer])
+        _dotted_poly(img_shape, [l_in_bot, l_pk_bot, l_outer])
+        _dotted_poly(img_shape, [l_in_top, l_in_bot])
+        _dotted_poly(img_shape, [l_pk_top, l_pk_bot])
+        for p in [r_in_top, r_in_bot, r_pk_top, r_pk_bot, l_in_top, l_in_bot, l_pk_top, l_pk_bot]:
+            cv2.circle(img_shape, tuple(np.int32(p)), 3, LC, -1, cv2.LINE_AA)
+
+        shape_crop_pts = np.array([r_in_top, l_in_top, r_outer, l_outer, r_pk_top, l_pk_top])
+        shape_detail_image_b64 = rgb_to_b64(_nose_region_crop(img_shape, shape_crop_pts, pad_mult=0.7))
+
+        # ══ 2. OTHER VISUAL FEATURES (four tab-switchable overlay images) ══
+        center_pt = (r_in_top + l_in_top) / 2.0
+        inner_brow_dist = float(np.linalg.norm(l_in_top - r_in_top))
+        r_tail, l_tail = r_outer, l_outer
+        feature_crop_pts = np.array([r_in_top, l_in_top, r_tail, l_tail, r_pk_top, l_pk_top, center_pt])
+
+        unibrow_val = "No Unibrow"
+        unibrow_exp = ("Your brows are clearly separated at the center so the bare skin between them keeps "
+                        "each side reading as its own distinct structure instead of a single continuous bar of hair.")
+        img_f1 = img_rgb.copy()
+        _dotted_circle(img_f1, center_pt, radius=max(10, eye_width * 0.08))
+        img_f1_b64 = rgb_to_b64(_nose_region_crop(img_f1, feature_crop_pts, pad_mult=0.8))
+
+        tail_len_val = "Normal Tail Length"
+        tail_len_exp = ("Your brow tails extend just past the outer eye corner so they complete the arch line "
+                         "and frame the lateral eye without stretching unusually far across the temple.")
+        img_f2 = img_rgb.copy()
+        Lc = eye_width * 0.15
+        for peak_mid, tail in [((r_pk_top + r_pk_bot) / 2, r_tail), ((l_pk_top + l_pk_bot) / 2, l_tail)]:
+            direction = tail - peak_mid
+            n = np.linalg.norm(direction)
+            direction = direction / n if n > 0 else direction
+            normal = np.array([-direction[1], direction[0]])
+            if normal[1] > 0:
+                normal = -normal
+            cap_top = tail - Lc * direction + (Lc * 0.35) * normal
+            cap_bot = tail - Lc * direction - (Lc * 0.35) * normal
+            cv2.line(img_f2, tuple(np.int32(cap_top)), tuple(np.int32(tail)), LC, 2, cv2.LINE_AA)
+            cv2.line(img_f2, tuple(np.int32(cap_bot)), tuple(np.int32(tail)), LC, 2, cv2.LINE_AA)
+        img_f2_b64 = rgb_to_b64(_nose_region_crop(img_f2, feature_crop_pts, pad_mult=0.8))
+
+        edges_val = "Blurred Eyebrow Edges"
+        edges_exp = ("Your brow borders soften into the surrounding skin with feathered hairs so the outline "
+                      "looks natural and slightly diffused instead of sharply carved or stencil like.")
+        img_f3 = img_rgb.copy()
+        soft = (200, 200, 200)
+        _dotted_poly(img_f3, [r_in_top, r_pk_top, r_tail], color=soft)
+        _dotted_poly(img_f3, [r_in_bot, r_pk_bot, r_tail], color=soft)
+        _dotted_poly(img_f3, [l_in_top, l_pk_top, l_tail], color=soft)
+        _dotted_poly(img_f3, [l_in_bot, l_pk_bot, l_tail], color=soft)
+        img_f3_b64 = rgb_to_b64(_nose_region_crop(img_f3, feature_crop_pts, pad_mult=0.8))
+
+        if inner_brow_dist > eye_width * 1.0:
+            wide_set_val = "Wide-Set Inner Brows"
+            wide_set_exp = ("Your inner brow heads sit more than one eye width apart so you show extra central "
+                             "forehead skin and a clearer visual gap between the brows and nasal bridge.")
+        else:
+            wide_set_val = "Normal-Set Inner Brows"
+            wide_set_exp = ("Your inner brow heads sit approximately one eye width apart, providing a balanced "
+                             "visual gap between the brows and nasal bridge.")
+        img_f4 = img_rgb.copy()
+        _dotted_line(img_f4, r_in_top, l_in_top)
+        _dotted_line(img_f4, r_in_bot, l_in_bot)
+        _dotted_line(img_f4, r_in_top, r_in_bot)
+        _dotted_line(img_f4, l_in_top, l_in_bot)
+        img_f4_b64 = rgb_to_b64(_nose_region_crop(img_f4, feature_crop_pts, pad_mult=0.8))
+
+        other_features = [
+            {"title": unibrow_val, "explanation": unibrow_exp, "image": img_f1_b64},
+            {"title": tail_len_val, "explanation": tail_len_exp, "image": img_f2_b64},
+            {"title": edges_val, "explanation": edges_exp, "image": img_f3_b64},
+            {"title": wide_set_val, "explanation": wide_set_exp, "image": img_f4_b64},
+        ]
+
+        # ══ 3. DENSITY ══
+        left_brow_indices = [276, 283, 282, 295, 285, 300, 293, 334, 296, 336]
+        right_brow_indices = [46, 53, 52, 65, 55, 70, 63, 105, 66, 107]
+        left_brow_pts = np.array([pts[i] for i in left_brow_indices], dtype=np.int32)
+        right_brow_pts = np.array([pts[i] for i in right_brow_indices], dtype=np.int32)
+        hull_left = cv2.convexHull(left_brow_pts)
+        hull_right = cv2.convexHull(right_brow_pts)
+
+        brow_mask = np.zeros((h, w), dtype=np.uint8)
+        cv2.fillPoly(brow_mask, [hull_left, hull_right], 255)
+
+        all_hull_pts = np.vstack((hull_left, hull_right))
+        bx, by, bw_, bh_ = cv2.boundingRect(all_hull_pts)
+        pad = 40
+        bx1, by1 = max(0, bx - pad), max(0, by - pad)
+        bx2, by2 = min(w, bx + bw_ + pad), min(h, by + bh_ + pad)
+
+        brow_cutout = np.full((h, w, 3), 251, dtype=np.uint8)
+        brow_cutout[:] = [251, 252, 253]
+        brow_cutout[brow_mask == 255] = img_rgb[brow_mask == 255]
+        brow_cropped = brow_cutout[by1:by2, bx1:bx2]
+        density_image_b64 = rgb_to_b64(brow_cropped) if brow_cropped.size else None
+
+        gray_img = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
+        thresh = cv2.adaptiveThreshold(gray_img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 15, 6)
+        hair_mask = cv2.bitwise_and(thresh, thresh, mask=brow_mask)
+
+        total_brow_area = int(np.sum(brow_mask == 255))
+        hair_area = int(np.sum(hair_mask == 255))
+        density_ratio = hair_area / (total_brow_area + 1e-6)
+        density_score = int((density_ratio - 0.1) * (100 / 0.5))
+        density_score = max(5, min(98, density_score))
+
+        if density_score < 30:
+            density_text = "Sparse"
+            density_explanation = ("Your brows have sparse density for your demographic. They appear lighter "
+                                    "and may benefit from filling to frame your eyes more strongly.")
+        elif density_score < 50:
+            density_text = "Moderately Sparse"
+            density_explanation = ("Your brows have moderately sparse density for your demographic. While "
+                                    "visible, the hair concentration is slightly lower than average.")
+        elif density_score < 70:
+            density_text = "Medium"
+            density_explanation = ("Your brows have medium density for your demographic, representing a "
+                                    "balanced and natural hair concentration.")
+        elif density_score < 85:
+            density_text = "Moderately High"
+            density_explanation = ("Your brows have moderately high density for your demographic so they form "
+                                    "a strong and healthy frame for your eyes.")
+        else:
+            density_text = "Dense"
+            density_explanation = ("Your brows have very high density for your demographic, indicating thick "
+                                    "individual hair strands and a packed structural concentration.")
+
+        # ══ 4. COLOR ══
+        eyebrow_colors = [
+            {"name": "Light Blond", "rgb": [232, 220, 199], "hex": "#e8dcc7"},
+            {"name": "Blond", "rgb": [211, 179, 140], "hex": "#d3b38c"},
+            {"name": "Light Brown", "rgb": [152, 106, 68], "hex": "#986a44"},
+            {"name": "Brown", "rgb": [90, 56, 37], "hex": "#5a3825"},
+            {"name": "Dark Brown", "rgb": [58, 38, 28], "hex": "#3a261c"},
+            {"name": "Black", "rgb": [33, 33, 33], "hex": "#212121"},
+        ]
+        hair_pixels = img_rgb[hair_mask == 255]
+        avg_color = np.mean(hair_pixels, axis=0) if len(hair_pixels) > 0 else np.array([33, 33, 33])
+
+        min_dist_c, closest_color = float("inf"), eyebrow_colors[-1]
+        for c in eyebrow_colors:
+            d = float(np.linalg.norm(avg_color - np.array(c["rgb"])))
+            if d < min_dist_c:
+                min_dist_c, closest_color = d, c
+
+        color_name, color_hex = closest_color["name"], closest_color["hex"]
+        if "Blond" in color_name:
+            color_explanation = (f"Your {color_name.lower()} brows create low contrast, giving a softer, more "
+                                  f"ethereal appearance to the upper third of your face. They gently frame the "
+                                  f"eyes without dominating your features.")
+        elif "Black" in color_name or "Dark" in color_name:
+            color_explanation = (f"Your {color_name.lower()} brows create strong contrast against light to "
+                                  f"medium skin and paler eyes, which pulls attention to the arch and gives the "
+                                  f"upper face a sharply defined, high-impact frame.")
+        else:
+            color_explanation = (f"Your {color_name.lower()} brows create a distinct contrast profile against "
+                                  f"your skin tone, which inherently affects how your upper facial third is "
+                                  f"perceived.")
+
+        # ══ 5. SYMMETRY ══
+        ordered_right_idx = [46, 53, 52, 65, 55, 107, 66, 105, 63, 70, 156]
+        ordered_left_idx = [276, 283, 282, 295, 285, 336, 296, 334, 293, 300, 383]
+
+        def _smooth_polygon(poly, n=60):
+            poly = np.vstack((poly, poly[0]))
+            tck, _u = splprep([poly[:, 0], poly[:, 1]], s=0, per=True)
+            u = np.linspace(0, 1, n)
+            out = splev(u, tck)
+            return np.column_stack(out)
+
+        left_poly_raw = np.array([pts[i] for i in ordered_left_idx], dtype=np.float64)
+        right_poly_raw = np.array([pts[i] for i in ordered_right_idx], dtype=np.float64)
+        left_poly = _smooth_polygon(left_poly_raw)
+        right_poly = _smooth_polygon(right_poly_raw)
+
+        left_center, right_center = left_poly.mean(axis=0), right_poly.mean(axis=0)
+        left_norm = left_poly - left_center
+        right_norm = right_poly - right_center
+        left_norm[:, 0] = -left_norm[:, 0]  # mirror left brow so it overlays the right for comparison
+
+        width_px = float(np.max(right_norm[:, 0]) - np.min(right_norm[:, 0]))
+        scale = 35.0 / width_px if width_px > 0 else 1.0
+        left_scaled, right_scaled = left_norm * scale, right_norm * scale
+
+        diff = float(np.mean(np.linalg.norm(np.sort(left_scaled, axis=0) - np.sort(right_scaled, axis=0), axis=1)))
+        if diff < 2.5:
+            symmetry_status = "Highly Symmetrical"
+            symmetry_explanation = ("Your brows are highly symmetrical with almost mathematically perfect "
+                                     "mirroring in arch height and inner head shape.")
+        elif diff < 6.0:
+            symmetry_status = "Broadly Symmetrical"
+            symmetry_explanation = ("Your brows are broadly symmetrical with only small differences in arch "
+                                     "height, inner head shape, and stray hairs that you only notice on close "
+                                     "inspection or in side by side photos.")
+        else:
+            symmetry_status = "Noticeably Asymmetrical"
+            symmetry_explanation = ("Your brows have distinct asymmetry, which is completely natural and adds "
+                                     "unique character and dynamic movement to your facial expressions.")
+
+        xs, ys = pts[:, 0].astype(float), pts[:, 1].astype(float)
+        sx1, sx2 = max(0, int(xs.min()) - 40), min(w, int(xs.max()) + 40)
+        sy1, sy2 = max(0, int(ys.min()) - 80), min(h, int(ys.max()) + 40)
+        face_crop = img_rgb[sy1:sy2, sx1:sx2]
+        symmetry_image_b64 = rgb_to_b64(face_crop) if face_crop.size else None
+
+        symmetry_left_points = [[round(float(p[0]), 2), round(float(p[1]), 2)] for p in left_scaled]
+        symmetry_right_points = [[round(float(p[0]), 2), round(float(p[1]), 2)] for p in right_scaled]
+
+        return {
+            "shape_thickness": thickness,
+            "shape_peak_type": peak_type,
+            "shape_inner_angle_class": inner_angle_class,
+            "shape_tail_angle_class": tail_angle_class,
+            "shape_overall": shape_overall,
+            "shape_detail_explanation": shape_detail_explanation,
+            "shape_detail_image": shape_detail_image_b64,
+
+            "other_features": other_features,
+
+            "density_score": density_score,
+            "density_text": density_text,
+            "density_explanation": density_explanation,
+            "density_image": density_image_b64,
+
+            "color_name": color_name,
+            "color_hex": color_hex,
+            "color_explanation": color_explanation,
+            "color_palette": eyebrow_colors,
+
+            "symmetry_score": round(diff, 2),
+            "symmetry_status": symmetry_status,
+            "symmetry_explanation": symmetry_explanation,
+            "symmetry_left_points": symmetry_left_points,
+            "symmetry_right_points": symmetry_right_points,
+            "symmetry_image": symmetry_image_b64,
+        }
+    except Exception as e:
+        print(f"[WARN] Advanced eyebrow analysis failed: {e}")
+        import traceback; traceback.print_exc()
+        return empty_result
+
+
 def analyze_nose_advanced(img_rgb, pts):
     """
     Extended nose analysis mirroring nose_extraction_cleaned.ipynb:
@@ -3500,6 +3846,10 @@ def analyze_all():
 
 
         em = metrics.get("eyebrow", {})
+
+        # ── Advanced eyebrow analysis: shape detail, other visual features, density, color, symmetry ──
+        eyebrow_advanced = analyze_eyebrow_advanced(img_rgb, pts)
+
         eyebrows_data = {
             # numeric metrics
             "right_brow_peak_height_mm":   _fmt(em.get("right_brow_peak_height_mm")),
@@ -3521,6 +3871,8 @@ def analyze_all():
             "r_brow_image":       part_imgs["r_brow"]["cropped"],
             "l_brow_image_white": part_imgs["l_brow"]["white_bg"],
             "l_brow_image":       part_imgs["l_brow"]["cropped"],
+            # advanced analysis (shape detail, other visual features, density, color, symmetry)
+            **eyebrow_advanced,
         }
 
         eym = metrics.get("eye", {})

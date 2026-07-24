@@ -13,6 +13,9 @@ import traceback
 
 import cv2
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 from PIL import Image
 from flask import Flask, render_template, request, jsonify
 
@@ -3137,15 +3140,43 @@ def classify_teeth_color(mean_l=None):
 
 def analyze_smile_image(img_rgb):
     """
-    Analyze a smiling face image to extract teeth exposure and color.
-    Returns dict with: teeth_exposure_ratio, teeth_mean_l,
-                       smile_image_b64, smile_image_white_b64
+    Analyze a smiling face image to extract teeth exposure, color, proportions,
+    and generate ALL notebook visualizations.
     """
     try:
         import cv2
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import io
+        import base64
+        import mediapipe as mp
+
         h, w = img_rgb.shape[:2]
 
-        import mediapipe as mp
+        def fig_to_b64(fig):
+            buf = io.BytesIO()
+            fig.savefig(buf, format='jpg', bbox_inches='tight', pad_inches=0.1, dpi=72)
+            buf.seek(0)
+            b64 = base64.b64encode(buf.read()).decode('utf-8')
+            plt.close(fig)
+            return "data:image/jpeg;base64," + b64
+
+        def arr_to_b64(arr):
+            # Downscale if image is too large to save space in sessionStorage
+            max_dim = 600
+            h, w = arr.shape[:2]
+            if max(h, w) > max_dim:
+                scale = max_dim / float(max(h, w))
+                arr = cv2.resize(arr, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+
+            # assume rgb or gray array
+            if len(arr.shape) == 3:
+                bgr = cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
+            else:
+                bgr = arr
+            _, buffer = cv2.imencode('.jpg', bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+            return "data:image/jpeg;base64," + base64.b64encode(buffer).decode('utf-8')
+
         mp_face = mp.solutions.face_mesh
         with mp_face.FaceMesh(static_image_mode=True, max_num_faces=1,
                                refine_landmarks=True, min_detection_confidence=0.4) as fm:
@@ -3155,11 +3186,51 @@ def analyze_smile_image(img_rgb):
             return {}
 
         lms = res.multi_face_landmarks[0].landmark
+        
+        # 1. Mouth-to-Eye Ratio
+        LEFT_IRIS_CENTER = 468
+        RIGHT_IRIS_CENTER = 473
+        left_eye_pt = np.array([lms[LEFT_IRIS_CENTER].x * w, lms[LEFT_IRIS_CENTER].y * h])
+        right_eye_pt = np.array([lms[RIGHT_IRIS_CENTER].x * w, lms[RIGHT_IRIS_CENTER].y * h])
+        mouth_left_pt = np.array([lms[61].x * w, lms[61].y * h])
+        mouth_right_pt = np.array([lms[291].x * w, lms[291].y * h])
+
+        eye_spacing = float(np.linalg.norm(right_eye_pt - left_eye_pt))
+        mouth_width = float(np.linalg.norm(mouth_right_pt - mouth_left_pt))
+        mouth_to_eye_ratio = round(mouth_width / eye_spacing, 2) if eye_spacing > 0 else None
+
+        # Generate width annotated image
+        annotated_width = img_rgb.copy()
+        cv2.line(annotated_width, tuple(left_eye_pt.astype(int)), tuple(right_eye_pt.astype(int)), (255, 255, 255), 2)
+        cv2.line(annotated_width, tuple(mouth_left_pt.astype(int)), tuple(mouth_right_pt.astype(int)), (255, 255, 255), 2)
+        for pt in (left_eye_pt, right_eye_pt, mouth_left_pt, mouth_right_pt):
+            cv2.circle(annotated_width, tuple(pt.astype(int)), 3, (0, 200, 255), -1)
+        width_annotated_b64 = arr_to_b64(annotated_width)
+
+        # Generate width bar chart
+        fig, ax = plt.subplots(figsize=(6, 5))
+        x = np.arange(2)
+        bar_w = 0.35
+        ax.bar(x[0] - bar_w / 2, mouth_width, bar_w, color="#3d4f5c", label="Mouth Width")
+        ax.bar(x[0] + bar_w / 2, eye_spacing, bar_w, color="#c9d3db", label="Eye Spacing")
+        ax.bar(x[1] - bar_w / 2, eye_spacing, bar_w, color="#3d4f5c")
+        ax.bar(x[1] + bar_w / 2, eye_spacing, bar_w, color="#c9d3db")
+        ax.set_xticks(x)
+        ax.set_xticklabels(["Your Proportion", "Ideal Proportion"])
+        ax.set_ylabel("Pixels")
+        ax.set_title("Mouth Width vs Eye Spacing")
+        ax.legend()
+        for xi, (mv, ev) in enumerate([(mouth_width, eye_spacing), (eye_spacing, eye_spacing)]):
+            ax.text(x[xi] - bar_w / 2, mv + max(mv, ev) * 0.02, f"{mv:.0f}", ha="center", fontsize=9)
+            ax.text(x[xi] + bar_w / 2, ev + max(mv, ev) * 0.02, f"{ev:.0f}", ha="center", fontsize=9)
+        width_chart_b64 = fig_to_b64(fig)
+
+
+        # 2. Crop mouth region
         MOUTH_OUTER = [61, 185, 40, 39, 37, 0, 267, 269, 270, 409,
                        291, 375, 321, 405, 314, 17, 84, 181, 91, 146]
 
-        pts_m = np.array([[int(lms[i].x * w), int(lms[i].y * h)]
-                          for i in MOUTH_OUTER], dtype=np.int32)
+        pts_m = np.array([[int(lms[i].x * w), int(lms[i].y * h)] for i in MOUTH_OUTER], dtype=np.int32)
         x1, y1 = pts_m[:, 0].min(), pts_m[:, 1].min()
         x2, y2 = pts_m[:, 0].max(), pts_m[:, 1].max()
 
@@ -3176,7 +3247,7 @@ def analyze_smile_image(img_rgb):
         roi_lab = cv2.cvtColor(roi_bgr, cv2.COLOR_BGR2Lab)
         roi_hsv = cv2.cvtColor(roi_bgr, cv2.COLOR_BGR2HSV)
 
-        # ── Teeth metrics (brightness + low saturation) ──
+        # ── Teeth exposure ratio (Old LAB/HSV Threshold) ──
         L = roi_lab[:, :, 0].astype(np.float32)
         S = roi_hsv[:, :, 1].astype(np.float32)
         teeth_mask = ((L > 140) & (S < 80)).astype(np.uint8) * 255
@@ -3194,47 +3265,147 @@ def analyze_smile_image(img_rgb):
             lab_l_vals = roi_lab[:, :, 0][teeth_mask > 0].astype(np.float32)
             mean_l = round(float(lab_l_vals.mean()) * 100.0 / 255.0, 2)
 
-        # ── Raw cropped smile (upper lip + teeth + lower lip) ──
-        cropped_b64 = rgb_to_b64(mouth_roi)
+        cropped_b64 = arr_to_b64(mouth_roi)
 
-        # ── White-BG image: full mouth polygon (lips + teeth), NOT just teeth pixels ──
-        # Translate the global MOUTH_OUTER points into ROI-local coordinates
+        # ── Mouth Polygon Mask ──
         pts_local = pts_m - np.array([x1, y1], dtype=np.int32)
-        # Also include lip-border landmarks (upper & lower lip inner ring)
         MOUTH_FULL = [
-            # outer corners + upper lip outer
             61, 185, 40, 39, 37, 0, 267, 269, 270, 409,
-            # outer corners + lower lip outer
             291, 375, 321, 405, 314, 17, 84, 181, 91, 146,
-            # upper lip inner
             78, 191, 80, 81, 82, 13, 312, 311, 310, 415, 308,
-            # lower lip inner
             95, 88, 178, 87, 14, 317, 402, 318, 324,
         ]
-        pts_full_global = np.array([[int(lms[i].x * w), int(lms[i].y * h)]
-                                     for i in MOUTH_FULL], dtype=np.int32)
+        pts_full_global = np.array([[int(lms[i].x * w), int(lms[i].y * h)] for i in MOUTH_FULL], dtype=np.int32)
         pts_full_local = pts_full_global - np.array([x1, y1], dtype=np.int32)
-        # Clip to ROI bounds
         roi_h, roi_w = mouth_roi.shape[:2]
         pts_full_local[:, 0] = np.clip(pts_full_local[:, 0], 0, roi_w - 1)
         pts_full_local[:, 1] = np.clip(pts_full_local[:, 1], 0, roi_h - 1)
 
-        # Build convex-hull mask of the full smile polygon
         hull = cv2.convexHull(pts_full_local)
         mouth_poly_mask = np.zeros((roi_h, roi_w), dtype=np.uint8)
         cv2.fillPoly(mouth_poly_mask, [hull], 255)
 
-        # Composite: mouth pixels inside polygon, white outside
-        white_bg_arr  = np.ones_like(mouth_roi, dtype=np.uint8) * 255
+        # mask and extracted
+        mask_b64 = arr_to_b64(mouth_poly_mask)
+        
+        black_bg_arr  = np.zeros_like(mouth_roi, dtype=np.uint8)
         poly_mask3    = cv2.cvtColor(mouth_poly_mask, cv2.COLOR_GRAY2RGB)
+        smile_extracted = np.where(poly_mask3 > 0, mouth_roi, black_bg_arr)
+        extracted_b64 = arr_to_b64(smile_extracted)
+        
+        white_bg_arr  = np.ones_like(mouth_roi, dtype=np.uint8) * 255
         smile_on_white = np.where(poly_mask3 > 0, mouth_roi, white_bg_arr)
-        white_b64 = rgb_to_b64(smile_on_white)
+        white_b64 = rgb_to_b64(smile_on_white) # fallback to old helper for consistent output
+
+        # 3. Mouth Height (at center)
+        ys_m, xs_m = np.where(mouth_poly_mask > 0)
+        mouth_height = None
+        height_crop_b64 = None
+        height_full_b64 = None
+        if len(xs_m) > 0:
+            x_center_local = int(np.median(xs_m))
+            band = 3
+            band_sel = (xs_m >= x_center_local - band) & (xs_m <= x_center_local + band)
+            band_ys = ys_m[band_sel]
+            if len(band_ys) > 0:
+                y_top_local = int(band_ys.min())
+                y_bottom_local = int(band_ys.max())
+                mouth_height = y_bottom_local - y_top_local
+
+                # draw caliper on crop
+                annotated_height_crop = mouth_roi.copy()
+                cap_w = 6
+                cv2.line(annotated_height_crop, (x_center_local, y_top_local), (x_center_local, y_bottom_local), (255, 255, 255), 1)
+                cv2.line(annotated_height_crop, (x_center_local - cap_w, y_top_local), (x_center_local + cap_w, y_top_local), (255, 255, 255), 1)
+                cv2.line(annotated_height_crop, (x_center_local - cap_w, y_bottom_local), (x_center_local + cap_w, y_bottom_local), (255, 255, 255), 1)
+                height_crop_b64 = arr_to_b64(annotated_height_crop)
+
+                # draw caliper on full
+                annotated_height_full = img_rgb.copy()
+                cap_w_f = 8
+                x_center = x_center_local + x1
+                y_top = y_top_local + y1
+                y_bottom = y_bottom_local + y1
+                cv2.line(annotated_height_full, (x_center, y_top), (x_center, y_bottom), (255, 255, 255), 2)
+                cv2.line(annotated_height_full, (x_center - cap_w_f, y_top), (x_center + cap_w_f, y_top), (255, 255, 255), 2)
+                cv2.line(annotated_height_full, (x_center - cap_w_f, y_bottom), (x_center + cap_w_f, y_bottom), (255, 255, 255), 2)
+                height_full_b64 = arr_to_b64(annotated_height_full)
+
+        # 4. Teeth Color via KMeans and generate cluster images
+        teeth_desc = "N/A"
+        clusters_b64 = None
+        palette_b64 = None
+        swatch_b64 = None
+        try:
+            mouth_pixels = mouth_roi[mouth_poly_mask > 0]
+            if len(mouth_pixels) > 0:
+                pixel_vals = np.float32(mouth_pixels)
+                criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
+                k = 5
+                _, labels_km, centers = cv2.kmeans(pixel_vals, k, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+                
+                centers = np.uint8(centers)
+                brightness = np.sum(centers, axis=1)
+                sorted_indices = np.argsort(brightness)[::-1]
+                brightest_idx = sorted_indices[0]
+                teeth_color_rgb = centers[brightest_idx]
+                
+                # Reconstruct cluster image
+                cluster_img = np.zeros_like(mouth_roi)
+                for i in range(k):
+                    c_mask = (labels_km.flatten() == i)
+                    pos = mouth_poly_mask.copy()
+                    pos[mouth_poly_mask > 0] = c_mask
+                    cluster_img[pos > 0] = centers[i]
+                clusters_b64 = arr_to_b64(cluster_img)
+
+                # Palette image
+                color_palette = np.zeros((50, k * 50, 3), dtype=np.uint8)
+                for i, idx in enumerate(sorted_indices):
+                    color_palette[:, i*50:(i+1)*50] = centers[idx]
+                palette_b64 = arr_to_b64(color_palette)
+
+                # Get description via HSV
+                teeth_bgr = cv2.cvtColor(np.uint8([[teeth_color_rgb[::-1]]]), cv2.COLOR_BGR2HSV)[0][0]
+                h_val, s_val, v_val = teeth_bgr
+                
+                if s_val < 30:
+                    if v_val > 200: teeth_desc = "Very Bright White"
+                    elif v_val > 150: teeth_desc = "Bright White"
+                    elif v_val > 100: teeth_desc = "Off-White / Cream"
+                    else: teeth_desc = "Grayish White"
+                else:
+                    teeth_desc = "Yellowish / Tinted"
+
+                # Swatch image
+                fig_swatch, ax_swatch = plt.subplots(figsize=(2, 1))
+                ax_swatch.imshow(np.zeros((100, 200, 3), dtype=np.uint8) + teeth_color_rgb)
+                ax_swatch.set_title(f"Teeth Color\n{teeth_desc}\nRGB: {tuple(teeth_color_rgb)}", fontsize=8, fontweight='bold')
+                ax_swatch.axis("off")
+                swatch_b64 = fig_to_b64(fig_swatch)
+
+        except Exception as e:
+            print("KMeans error:", e)
 
         return {
             "teeth_exposure_ratio":  exposure_ratio,
             "teeth_mean_l":          mean_l,
+            "teeth_color_desc":      teeth_desc,
+            "mouth_to_eye_ratio":    mouth_to_eye_ratio,
+            "mouth_height_px":       mouth_height,
             "smile_image_b64":       cropped_b64,
             "smile_image_white_b64": white_b64,
+            
+            # New Detailed Notebook Output
+            "mask_b64": mask_b64,
+            "extracted_b64": extracted_b64,
+            "clusters_b64": clusters_b64,
+            "palette_b64": palette_b64,
+            "swatch_b64": swatch_b64,
+            "width_annotated_b64": width_annotated_b64,
+            "width_chart_b64": width_chart_b64,
+            "height_crop_b64": height_crop_b64,
+            "height_full_b64": height_full_b64,
         }
 
     except Exception:
@@ -3242,7 +3413,6 @@ def analyze_smile_image(img_rgb):
         return {}
 
 
-# Neck classifiers
 def classify_neck_width(neck_w_mm):
     if neck_w_mm is None: return "N/A"
     if neck_w_mm < 75: return "Slender"
@@ -4783,10 +4953,25 @@ def analyze_all():
             "mouth_width_class": classify_smile_width(sm.get("smile_width_mm")),
             "smile_shape":       classify_smile_shape(sm.get("upper_smile_arc_curvature")),
             "teeth_exposure":    classify_teeth_exposure(smile_img_analysis.get("teeth_exposure_ratio")),
-            "teeth_color":       classify_teeth_color(smile_img_analysis.get("teeth_mean_l")),
+            "teeth_color":       smile_img_analysis.get("teeth_color_desc") if smile_img_analysis.get("teeth_color_desc") else classify_teeth_color(smile_img_analysis.get("teeth_mean_l")),
+            # new metrics
+            "mouth_to_eye_ratio": smile_img_analysis.get("mouth_to_eye_ratio"),
+            "mouth_height_px":    smile_img_analysis.get("mouth_height_px"),
             # images: use dedicated smile upload if provided, otherwise fall back to lips crop
             "smile_image_white": smile_img_analysis.get("smile_image_white_b64") or part_imgs["combined_lips"]["white_bg"],
             "smile_image":       smile_img_analysis.get("smile_image_b64")       or part_imgs["combined_lips"]["cropped"],
+            
+            # NOTEBOOK REPLICATED IMAGES
+            "mask_b64": smile_img_analysis.get("mask_b64"),
+            "extracted_b64": smile_img_analysis.get("extracted_b64"),
+            "clusters_b64": smile_img_analysis.get("clusters_b64"),
+            "palette_b64": smile_img_analysis.get("palette_b64"),
+            "swatch_b64": smile_img_analysis.get("swatch_b64"),
+            "width_annotated_b64": smile_img_analysis.get("width_annotated_b64"),
+            "width_chart_b64": smile_img_analysis.get("width_chart_b64"),
+            "height_crop_b64": smile_img_analysis.get("height_crop_b64"),
+            "height_full_b64": smile_img_analysis.get("height_full_b64"),
+            
             # flag for the frontend
             "has_smile_upload":  smile_img_rgb is not None,
         }

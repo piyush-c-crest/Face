@@ -147,6 +147,7 @@
                         <div class="dot active" onclick="goToSlide(0)"></div>
                         <div class="dot" onclick="goToSlide(1)"></div>
                         <div class="dot" onclick="goToSlide(2)"></div>
+                        <div class="dot" onclick="goToSlide(3)"></div>
                         <div class="arrow" onclick="nextSlide()">&gt;</div>
                     </div>
                     <div class="range-card active" id="slide-0">
@@ -186,9 +187,48 @@
                                 <div class="slider-marker" id="markerSW" style="left:50%;"></div>
                                 <div class="slider-labels" style="padding:0 10%;"><div>40 mm</div><div>60 mm</div></div>
                             </div>
+                    <div class="range-card next" id="slide-3">
+                        <h3>Mouth-to-Eye <span class="highlight">Ratio</span></h3>
+                        <p class="desc">Ratio of mouth width to interpupillary (eye) spacing. Ideal is around 1.0.</p>
+                        <div class="range-box">
+                            <div class="range-box-header"><div>MOUTH-TO-EYE RATIO</div><div>LANDMARK-BASED</div></div>
+                            <div class="range-value" id="valMouthEye">--<span> ratio</span></div>
+                            <div class="slider-container">
+                                <div class="slider-track"></div><div class="slider-fill" style="left:15%;right:15%;"></div>
+                                <div class="slider-marker" id="markerME" style="left:50%;"></div>
+                                <div class="slider-labels" style="padding:0 10%;"><div>0.8</div><div>1.2</div></div>
+                            </div>
+                        </div>
+                    </div>
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <div style="margin-top:24px;background:var(--card-bg);border:1px solid var(--border-color);border-radius:12px;padding:24px;box-shadow:0 2px 10px rgba(0,0,0,0.02);">
+            <div class="grid-header" style="margin-bottom:16px;">Analysis Breakdown (Notebook Replicated)</div>
+            
+            <h4 style="margin:20px 0 10px; color:var(--text-main);">1. Teeth Color Clustering (HSV)</h4>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:16px;margin-bottom:24px;">
+                <div><div class="metric-label" style="margin-bottom:8px;">Original Mouth Region</div><img id="imgOriginalMouth" style="width:100%;border-radius:8px;background:#000;aspect-ratio:1.5;object-fit:cover;"></div>
+                <div><div class="metric-label" style="margin-bottom:8px;">Segmentation Mask</div><img id="imgMask" style="width:100%;border-radius:8px;background:#000;aspect-ratio:1.5;object-fit:cover;"></div>
+                <div><div class="metric-label" style="margin-bottom:8px;">Extracted Smile Part</div><img id="imgExtracted" style="width:100%;border-radius:8px;background:#000;aspect-ratio:1.5;object-fit:cover;"></div>
+                <div><div class="metric-label" style="margin-bottom:8px;">K-means Clusters (n=5)</div><img id="imgClusters" style="width:100%;border-radius:8px;background:#000;aspect-ratio:1.5;object-fit:cover;"></div>
+                <div><div class="metric-label" style="margin-bottom:8px;">Dominant Colors Palette</div><img id="imgPalette" style="width:100%;border-radius:8px;background:#000;aspect-ratio:1.5;object-fit:cover;"></div>
+                <div><div class="metric-label" style="margin-bottom:8px;">Teeth Color Swatch</div><img id="imgSwatch" style="width:100%;border-radius:8px;background:#000;aspect-ratio:1.5;object-fit:cover;"></div>
+            </div>
+
+            <h4 style="margin:20px 0 10px; color:var(--text-main);">2. Smile Width Analysis</h4>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:16px;margin-bottom:24px;">
+                <div><div class="metric-label" style="margin-bottom:8px;">Annotated Width Lines</div><img id="imgWidthAnnot" style="width:100%;border-radius:8px;background:#000;object-fit:contain;max-height:300px;"></div>
+                <div><div class="metric-label" style="margin-bottom:8px;">Proportion Comparison</div><img id="imgWidthChart" style="width:100%;border-radius:8px;background:#fff;object-fit:contain;max-height:300px;"></div>
+            </div>
+
+            <h4 style="margin:20px 0 10px; color:var(--text-main);">3. Mouth Height Analysis</h4>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:16px;margin-bottom:24px;">
+                <div><div class="metric-label" style="margin-bottom:8px;">Mouth Crop Height</div><img id="imgHeightCrop" style="width:100%;border-radius:8px;background:#000;object-fit:contain;max-height:300px;"></div>
+                <div><div class="metric-label" style="margin-bottom:8px;">Full Face Height Context</div><img id="imgHeightFull" style="width:100%;border-radius:8px;background:#000;object-fit:contain;max-height:300px;"></div>
             </div>
         </div>
 
@@ -200,7 +240,7 @@
 </div>
 
 <script>
-    let currentSlide=0; const totalSlides=3;
+    let currentSlide=0; const totalSlides=4;
     function updateCarousel(){for(let i=0;i<totalSlides;i++){const s=document.getElementById(`slide-${i}`);s.classList.remove('active','prev','next');if(i===currentSlide)s.classList.add('active');else if(i<currentSlide)s.classList.add('prev');else s.classList.add('next');}document.querySelectorAll('.carousel-nav .dot').forEach((d,i)=>d.classList.toggle('active',i===currentSlide));}
     function nextSlide(){currentSlide=(currentSlide+1)%totalSlides;updateCarousel();}
     function prevSlide(){currentSlide=(currentSlide-1+totalSlides)%totalSlides;updateCarousel();}
@@ -231,6 +271,21 @@
         setMark('markerArc',uarc,-4.66,42.74);
         setMark('markerLArc',larc,-10,50);
         setMark('markerSW',sw,40,60);
+        const me = parseFloat(data.mouth_to_eye_ratio) || 0;
+        document.getElementById('valMouthEye').innerHTML=`${data.mouth_to_eye_ratio||'N/A'}<span></span>`;
+        setMark('markerME', me, 0.8, 1.2);
+        
+        // Load notebook images
+        if (data.smile_image) document.getElementById('imgOriginalMouth').src = data.smile_image;
+        if (data.mask_b64) document.getElementById('imgMask').src = data.mask_b64;
+        if (data.extracted_b64) document.getElementById('imgExtracted').src = data.extracted_b64;
+        if (data.clusters_b64) document.getElementById('imgClusters').src = data.clusters_b64;
+        if (data.palette_b64) document.getElementById('imgPalette').src = data.palette_b64;
+        if (data.swatch_b64) document.getElementById('imgSwatch').src = data.swatch_b64;
+        if (data.width_annotated_b64) document.getElementById('imgWidthAnnot').src = data.width_annotated_b64;
+        if (data.width_chart_b64) document.getElementById('imgWidthChart').src = data.width_chart_b64;
+        if (data.height_crop_b64) document.getElementById('imgHeightCrop').src = data.height_crop_b64;
+        if (data.height_full_b64) document.getElementById('imgHeightFull').src = data.height_full_b64;
 
         const img=document.getElementById('smileImage'),imgWB=document.getElementById('smileImageWB');
         if(img&&data.smile_image) img.src=data.smile_image;
@@ -247,7 +302,17 @@
         }
 
         const det=document.getElementById('smileMetricsDetail');
-        if(det){const rows=[['Upper Smile Arc Curvature',data.upper_smile_arc_curvature],['Lower Smile Arc Curvature',data.lower_smile_arc_curvature],['Smile Width',data.smile_width_mm?data.smile_width_mm+' mm':'N/A'],['Mouth Width Class',data.mouth_width_class],['Smile Shape',data.smile_shape],['Teeth Exposure',data.teeth_exposure],['Teeth Color',data.teeth_color]];det.innerHTML=rows.map(([l,v])=>`<div class="metric-row"><span class="metric-label">${l}</span><span class="metric-val">${v||'N/A'}</span></div>`).join('');}
+        if(det){const rows=[
+            ['Upper Smile Arc Curvature',data.upper_smile_arc_curvature],
+            ['Lower Smile Arc Curvature',data.lower_smile_arc_curvature],
+            ['Smile Width',data.smile_width_mm?data.smile_width_mm+' mm':'N/A'],
+            ['Mouth Width Class',data.mouth_width_class],
+            ['Smile Shape',data.smile_shape],
+            ['Teeth Exposure',data.teeth_exposure],
+            ['Teeth Color',data.teeth_color],
+            ['Mouth-to-Eye Ratio', data.mouth_to_eye_ratio],
+            ['Mouth Height (Center)', data.mouth_height_px ? data.mouth_height_px + ' px' : 'N/A']
+        ];det.innerHTML=rows.map(([l,v])=>`<div class="metric-row"><span class="metric-label">${l}</span><span class="metric-val">${v||'N/A'}</span></div>`).join('');}
 
     });
 </script>

@@ -191,6 +191,86 @@
             <div class="grid-header" style="margin-bottom:16px;">All Chin Metrics</div>
             <div id="chinMetricsDetail" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 32px;"></div>
         </div>
+
+        <!-- ═══════════════════════════════════════════════════════
+             CHIN IMPRESSION (DIMORPHISM)
+             ═══════════════════════════════════════════════════════ -->
+        <div style="margin-top:24px;background:var(--card-bg);border:1px solid var(--border-color);border-radius:12px;padding:32px;box-shadow:0 2px 10px rgba(0,0,0,0.02);">
+            <div class="grid-header">Your chin <span style="color:var(--text-highlight);">impression</span></div>
+            <p style="font-size:13px;color:var(--text-secondary);margin:8px 0 28px 0;max-width:640px;line-height:1.55;">
+                The chin shapes facial dimorphism — a smaller, shorter chin looks more <strong>feminine</strong>, while a taller, broader one reads more <strong>masculine</strong>. Plotted against the jaw-to-cheek width for a fuller picture.
+            </p>
+            <div style="display:flex;gap:48px;flex-wrap:wrap;align-items:flex-start;">
+                <div style="text-align:center;flex-shrink:0;">
+                    <img id="chinImpressionImage" src="" alt="Chin outline" style="width:220px;height:220px;object-fit:contain;border-radius:12px;background:#fafafa;border:1px solid var(--border-color);">
+                    <p style="margin-top:8px;font-size:12px;color:var(--text-secondary);">Synthetic Chin Outline</p>
+                </div>
+                <div style="flex:1;min-width:300px;">
+                    <div style="position:relative;width:288px;margin:0 auto;">
+                        <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:600;color:var(--text-highlight);letter-spacing:0.5px;margin-bottom:6px;">
+                            <span>DELICATE</span>
+                        </div>
+                        <div id="chinImpressionGrid" style="width:288px;height:288px;display:grid;grid-template-columns:repeat(9,1fr);grid-template-rows:repeat(9,1fr);gap:3px;"></div>
+                        <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:600;color:var(--text-highlight);letter-spacing:0.5px;margin-top:6px;">
+                            <span>ROBUST</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:600;color:var(--text-highlight);letter-spacing:0.5px;margin-top:14px;">
+                            <span>FEMININE</span><span>MASCULINE</span>
+                        </div>
+                    </div>
+                    <p id="chinImpressionExplanation" style="text-align:center;font-size:13px;color:var(--text-primary);max-width:340px;margin:20px auto 0;line-height:1.5;"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════
+             SIDE-PROFILE PROJECTION & PROPORTION ANALYSIS
+             ═══════════════════════════════════════════════════════ -->
+        <div style="margin-top:24px;background:var(--card-bg);border:1px solid var(--border-color);border-radius:12px;padding:32px;box-shadow:0 2px 10px rgba(0,0,0,0.02);">
+            <div class="grid-header">🧬 Side-profile projection <span style="color:var(--text-highlight);">&amp; proportion</span></div>
+            <p style="font-size:13px;color:var(--text-secondary);margin:8px 0 20px 0;max-width:680px;line-height:1.55;">
+                Measured from your <strong>45° side-profile image</strong> (the same one uploaded on the Dashboard for Jaw analysis) — how your chin projects relative to the True Vertical Line from your nasion, and how its height compares to your upper lip.
+            </p>
+            <div id="chinSideStatus" style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;"></div>
+            <div id="chinSideNoImage" style="display:none;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;padding:14px 18px;border-radius:8px;font-size:13px;line-height:1.5;">
+                No 45° side-profile image found for this session. Please go to the <a href="/" style="color:#9a3412;font-weight:600;">Dashboard</a>, upload a 45° image in the "45-Degree Image (for Jaw analysis)" box, and run the analysis again — the chin tab will then pick it up automatically.
+            </div>
+
+            <div id="chinSideResults" style="display:none;margin-top:28px;">
+                <div class="bottom-split">
+                    <div style="text-align:center;">
+                        <img id="chinProjectionImage" src="" alt="Chin projection analysis" style="max-width:100%;border-radius:12px;">
+                        <p style="margin-top:8px;font-size:12px;color:var(--text-secondary);">A closer look at your chin projection</p>
+                    </div>
+                    <div>
+                        <div class="grid-header" style="font-size:15px;margin-bottom:4px;">Chin Balance Score</div>
+                        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px;">
+                            <div id="chinBalanceScore" style="font-size:56px;font-weight:700;line-height:1;">--</div>
+                            <div style="font-size:14px;color:var(--text-secondary);">/ 100</div>
+                        </div>
+                        <div id="chinBalanceLabel" style="font-size:14px;font-weight:600;margin-bottom:20px;"></div>
+                        <div class="metric-row" style="margin-bottom:8px;"><span class="metric-label">Convexity Angle</span><span class="metric-val" id="chinConvexity">--</span></div>
+                        <div class="metric-row" style="margin-bottom:8px;"><span class="metric-label">Normalized Projection</span><span class="metric-val" id="chinNormProj">--</span></div>
+                        <p id="chinBalanceNote" style="font-size:13px;color:var(--text-primary);margin-top:16px;line-height:1.5;"></p>
+                    </div>
+                </div>
+
+                <div style="margin-top:32px;padding-top:28px;border-top:1px solid var(--border-color);">
+                    <div class="grid-header" style="font-size:16px;margin-bottom:16px;">Chin-to-Upper-Lip Ratio</div>
+                    <div class="bottom-split">
+                        <div style="text-align:center;">
+                            <img id="chinRatioImage" src="" alt="Chin to upper lip ratio" style="max-width:100%;border-radius:12px;">
+                            <p style="margin-top:8px;font-size:12px;color:var(--text-secondary);">Measurement Reference</p>
+                        </div>
+                        <div>
+                            <div class="metric-row" style="margin-bottom:8px;"><span class="metric-label">Your Ratio</span><span class="metric-val" id="chinLipRatio">--</span></div>
+                            <div class="metric-row" style="margin-bottom:8px;"><span class="metric-label">Ideal Ratio</span><span class="metric-val">1.40 : 1.00</span></div>
+                            <p id="chinLipRatioExplanation" style="font-size:13px;color:var(--text-primary);margin-top:16px;line-height:1.5;"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -203,7 +283,88 @@
     function setVal(id,v){const el=document.getElementById(id);if(el)el.innerText=(v&&v!=='N/A')?v:'N/A';}
     function setMark(id,val,min,max){const p=15+((val-min)/(max-min))*70;document.getElementById(id).style.left=`${Math.max(5,Math.min(95,p))}%`;}
 
+    // ── Chin Impression (Dimorphism) 9x9 grid ──
+    function buildChinImpressionGrid(gx, gy){
+        const grid=document.getElementById('chinImpressionGrid');
+        if(!grid) return;
+        grid.innerHTML='';
+        for(let row=0; row<9; row++){
+            for(let col=0; col<9; col++){
+                const cell=document.createElement('div');
+                const isTarget=(row===gy && col===gx);
+                cell.style.borderRadius='4px';
+                cell.style.background=isTarget?'#1e293b':'#f1f5f9';
+                cell.style.transition='background 0.3s';
+                grid.appendChild(cell);
+            }
+        }
+    }
+
+    // ── Side-Profile Projection & Proportion Analysis ──
+    // Reuses the SAME 45° image already uploaded on the Dashboard for Jaw
+    // analysis (sessionStorage 'jawImageDataUrl'), instead of asking for a
+    // separate upload here.
+    function dataURLtoBlob(dataUrl){
+        const parts=dataUrl.split(',');
+        const mimeMatch=parts[0].match(/:(.*?);/);
+        const mime=mimeMatch?mimeMatch[1]:'image/jpeg';
+        const bstr=atob(parts[1]);
+        let n=bstr.length;
+        const u8arr=new Uint8Array(n);
+        while(n--){ u8arr[n]=bstr.charCodeAt(n); }
+        return new Blob([u8arr], {type:mime});
+    }
+
+    async function runChinSideAnalysis(){
+        const statusEl=document.getElementById('chinSideStatus');
+        const noImageEl=document.getElementById('chinSideNoImage');
+        const jawDataUrl=sessionStorage.getItem('jawImageDataUrl');
+
+        if(!jawDataUrl){
+            noImageEl.style.display='block';
+            statusEl.innerText='';
+            return;
+        }
+        noImageEl.style.display='none';
+        statusEl.innerText='Analyzing your 45° image for chin projection...';
+
+        try{
+            const blob=dataURLtoBlob(jawDataUrl);
+            const fd=new FormData();
+            fd.append('chin_side', blob, 'jaw_45.jpg');
+
+            const res=await fetch('/analyze_chin_side',{method:'POST',body:fd});
+            const json=await res.json();
+            if(json.error){
+                statusEl.innerText=json.error;
+                return;
+            }
+            statusEl.innerText='';
+            const d=json.chin_side;
+            document.getElementById('chinSideResults').style.display='block';
+
+            document.getElementById('chinProjectionImage').src=d.chin_projection_image||'';
+            const scoreEl=document.getElementById('chinBalanceScore');
+            scoreEl.innerText=d.chin_balance_score;
+            scoreEl.style.color=d.chin_balance_color;
+            const labelEl=document.getElementById('chinBalanceLabel');
+            labelEl.innerText=d.chin_balance_label;
+            labelEl.style.color=d.chin_balance_color;
+            document.getElementById('chinConvexity').innerText=d.convexity_angle_deg.toFixed(1)+'°';
+            document.getElementById('chinNormProj').innerText=(d.normalized_projection>=0?'+':'')+d.normalized_projection.toFixed(4);
+            document.getElementById('chinBalanceNote').innerText=d.chin_balance_note;
+
+            document.getElementById('chinRatioImage').src=d.chin_lip_ratio_image||'';
+            document.getElementById('chinLipRatio').innerText=d.chin_lip_ratio.toFixed(2)+' : 1.00';
+            document.getElementById('chinLipRatioExplanation').innerText=d.chin_lip_ratio_explanation;
+        }catch(e){
+            statusEl.innerText='Analysis failed. Please try again.';
+            console.error(e);
+        }
+    }
+
     window.addEventListener('DOMContentLoaded',()=>{
+        runChinSideAnalysis(); // independent of the front-face dashboard data below
         const dataStr=sessionStorage.getItem('faceData_chin');
         if(!dataStr){const b=document.createElement('div');b.innerHTML='<div style="background:var(--text-highlight);color:white;padding:15px;text-align:center;border-radius:8px;margin-bottom:20px;font-weight:bold;">No Face Data Found! Please go to Dashboard and upload your image first.</div>';document.querySelector('.header').after(b);return;}
         const data=JSON.parse(dataStr);
@@ -214,6 +375,15 @@
         setVal('valChinProj',  data.projection);
         setVal('valChinShape', data.shape);
         setVal('valChinDepth', data.depth);
+
+        const impImg=document.getElementById('chinImpressionImage');
+        if(impImg && data.chin_impression_image) impImg.src=data.chin_impression_image;
+        const impExp=document.getElementById('chinImpressionExplanation');
+        if(impExp) impExp.innerText=data.chin_impression_explanation||'';
+        buildChinImpressionGrid(
+            (data.chin_impression_grid_x!==undefined && data.chin_impression_grid_x!==null)?data.chin_impression_grid_x:4,
+            (data.chin_impression_grid_y!==undefined && data.chin_impression_grid_y!==null)?data.chin_impression_grid_y:4
+        );
 
         const w=parseFloat(data.chin_width_mm)||0;
         const h=parseFloat(data.chin_vertical_height_mm)||0;

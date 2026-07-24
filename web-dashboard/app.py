@@ -809,6 +809,245 @@ def analyze_jaw_advanced(img_rgb, pts):
         return empty_result
 
 
+# ─────────────────────────────────────────────
+# Chin — Advanced Analysis (from chin_analysis.ipynb)
+# ─────────────────────────────────────────────
+
+def analyze_chin_impression(img_rgb, pts):
+    """
+    Chin Impression (Dimorphism) analysis, mirroring the front-facing cell of
+    chin_analysis.ipynb:
+      X-axis: Feminine (tapered jaw) <-> Masculine (wide/square jaw)
+              via jaw width / bizygomatic (cheek) width
+      Y-axis: Delicate (short chin button) <-> Robust (tall chin button)
+              via chin height (mentolabial sulcus -> pogonion) / face height
+    Also draws a mathematically-fit "shield" outline over the chin button
+    (smoothed with a periodic B-spline, same approach as the notebook).
+    Returns a flat dict for merging into chin_data.
+    """
+    h, w = img_rgb.shape[:2]
+
+    def get_pt(idx):
+        return pts[idx].astype(np.float32)
+
+    empty_result = {
+        "chin_impression_grid_x": 4, "chin_impression_grid_y": 4,
+        "chin_impression_explanation": "N/A",
+        "chin_impression_image": None,
+        "chin_jaw_cheek_ratio": None,
+        "chin_norm_height_ratio": None,
+    }
+
+    try:
+        # ── Geometric extraction ──
+        face_width       = float(np.linalg.norm(get_pt(234) - get_pt(454)))   # bizygomatic
+        face_height      = float(np.linalg.norm(get_pt(10)  - get_pt(152)))   # forehead -> pogonion
+        jaw_width        = float(np.linalg.norm(get_pt(132) - get_pt(361)))  # bigonial
+        chin_height_real = float(np.linalg.norm(get_pt(200) - get_pt(152)))  # mentolabial sulcus -> pogonion
+
+        # ── X-axis: masculinity (jaw-to-cheek ratio) ──
+        jaw_cheek_ratio = jaw_width / (face_width + 1e-9)
+        grid_x_float = (jaw_cheek_ratio - 0.73) / (0.90 - 0.73) * 8
+        grid_x = int(np.clip(round(grid_x_float), 0, 8))
+
+        # ── Y-axis: robustness (normalized chin height) ──
+        norm_chin_height = chin_height_real / (face_height + 1e-9)
+        grid_y_float = (norm_chin_height - 0.05) / (0.11 - 0.05) * 8
+        grid_y = int(np.clip(round(grid_y_float), 0, 8))
+
+        masc_word   = "masculine" if grid_x >= 4 else "feminine"
+        robust_word = "robust"    if grid_y >= 4 else "delicate"
+        near_center = (3 <= grid_x <= 5) and (3 <= grid_y <= 5)
+        explanation = (
+            f"Your chin reads as {masc_word} and {robust_word}: the chin-button height "
+            f"relative to your face and the jaw-to-cheek width both sit "
+            f"{'near the middle of' if near_center else 'toward one end of'} the typical "
+            f"dimorphic range."
+        )
+
+        # ── Synthetic shield outline over the chin button (spline-smoothed) ──
+        top_center    = get_pt(200)
+        bottom_center = get_pt(152)
+        c_height = float(np.linalg.norm(bottom_center - top_center))
+        c_width  = float(np.linalg.norm(get_pt(149) - get_pt(378))) * 0.95
+        vec = bottom_center - top_center
+        angle = math.atan2(vec[1], vec[0]) - math.pi / 2
+        center_pt = (top_center + bottom_center) / 2.0
+
+        synth_pts = [
+            (-c_width / 2.2, -c_height / 2.2),
+            (0, -c_height / 2.5),
+            (c_width / 2.2, -c_height / 2.2),
+            (c_width / 2, 0),
+            (0, c_height / 2),
+            (-c_width / 2, 0),
+        ]
+        cos_a, sin_a = math.cos(angle), math.sin(angle)
+        rot_mat = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
+        rotated = np.array([rot_mat @ np.array(p) + center_pt for p in synth_pts])
+        closed = np.vstack((rotated, rotated[0]))
+
+        tck, _u = splprep([closed[:, 0], closed[:, 1]], s=0, per=True)
+        unew = np.linspace(0, 1, 100)
+        spline_out = splev(unew, tck)
+        spline_pts = np.column_stack(spline_out).astype(np.int32)
+
+        img_shield = img_rgb.copy()
+        cv2.polylines(img_shield, [spline_pts], isClosed=True,
+                      color=(255, 255, 255), thickness=2, lineType=cv2.LINE_AA)
+
+        # Tight crop around the face (same convention as analyze_jaw_advanced)
+        all_pts_int = pts.astype(np.int32)
+        fx, fy, fw_box, fh_box = cv2.boundingRect(all_pts_int)
+        pad_x = int(fw_box * 0.10)
+        pad_y = int(fh_box * 0.12)
+        fx1 = max(0, fx - pad_x)
+        fy1 = max(0, fy - pad_y)
+        fx2 = min(w, fx + fw_box + pad_x)
+        fy2 = min(h, fy + fh_box + pad_y)
+        crop = img_shield[fy1:fy2, fx1:fx2]
+        chin_impression_image_b64 = rgb_to_b64(crop if crop.size else img_shield)
+
+        return {
+            "chin_impression_grid_x": grid_x,
+            "chin_impression_grid_y": grid_y,
+            "chin_impression_explanation": explanation,
+            "chin_impression_image": chin_impression_image_b64,
+            "chin_jaw_cheek_ratio": round(jaw_cheek_ratio, 3),
+            "chin_norm_height_ratio": round(norm_chin_height, 3),
+        }
+
+    except Exception as e:
+        print(f"[WARN] Chin impression analysis failed: {e}")
+        import traceback; traceback.print_exc()
+        return empty_result
+
+
+def analyze_chin_side_advanced(img_rgb):
+    """
+    Cephalometric chin projection + chin-to-upper-lip ratio analysis from a
+    SIDE PROFILE image, mirroring chin_analysis.ipynb. Uses the shared
+    MediaPipe Face Mesh model (same 468-point index space used elsewhere in
+    this file), so no extra model file is required.
+    Returns None if no face was detected, otherwise a flat result dict.
+    """
+    h, w, _ = img_rgb.shape
+    results = _face_mesh.process(img_rgb)
+    if not results.multi_face_landmarks:
+        return None
+
+    landmarks = results.multi_face_landmarks[0].landmark
+
+    def pt(idx):
+        return np.array([landmarks[idx].x * w, landmarks[idx].y * h], dtype=np.float32)
+
+    nasion      = pt(9)     # Nasion / Glabella
+    nose_tip    = pt(1)     # Pronasale
+    subnasale   = pt(2)     # Subnasale
+    upper_lip   = pt(0)     # Labrale superius
+    lower_lip   = pt(17)    # Labrale inferius
+    pogonion    = pt(152)   # Chin tip
+    forehead    = pt(10)    # Forehead top
+    left_cheek  = pt(234)
+    right_cheek = pt(454)
+
+    is_facing_right = bool(nose_tip[0] > (left_cheek[0] + right_cheek[0]) / 2)
+
+    # ── True Vertical Line projection ──
+    chin_horiz_offset_px = float(pogonion[0] - nasion[0])
+    chin_projection_px = chin_horiz_offset_px if is_facing_right else -chin_horiz_offset_px
+
+    face_height_px = max(abs(float(pogonion[1] - forehead[1])), 1.0)
+    normalized_projection = chin_projection_px / face_height_px
+
+    # ── Facial convexity angle (Nasion -> Subnasale -> Pogonion) ──
+    v1 = nasion - subnasale
+    v2 = pogonion - subnasale
+    cos_angle = float(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2) + 1e-9))
+    cos_angle = max(-1.0, min(1.0, cos_angle))
+    convexity_angle = math.degrees(math.acos(cos_angle))
+
+    # ── Chin balance score (Gaussian centered on an ideal near-zero projection) ──
+    ideal, sigma = 0.0, 0.12
+    z = abs(normalized_projection - ideal) / sigma
+    score = int(round(100 * math.exp(-0.5 * z * z)))
+    score = max(0, min(100, score))
+
+    if score >= 80:
+        label, color = "Excellent", "#2e7d32"
+    elif score >= 60:
+        label, color = "Above Average", "#558b2f"
+    elif score >= 40:
+        label, color = "Average", "#f9a825"
+    elif score >= 20:
+        label, color = "Below Average", "#e65100"
+    else:
+        label, color = "Poor", "#b71c1c"
+
+    if normalized_projection > 0.05:
+        balance_note = "Your chin is protruded relative to the True Vertical Line."
+    elif normalized_projection < -0.05:
+        balance_note = "Your chin is retruded relative to the True Vertical Line."
+    else:
+        balance_note = "Your chin projection is well-balanced with your profile."
+
+    # ── Annotated projection overlay ──
+    LC = (255, 255, 255)
+    img_proj = img_rgb.copy()
+    tvl_top    = (int(nasion[0]), int(nasion[1] - h * 0.15))
+    tvl_bottom = (int(nasion[0]), int(pogonion[1] + h * 0.10))
+    _draw_dashed_line_cv(img_proj, tvl_top, tvl_bottom, LC, 2)
+    cv2.line(img_proj, tuple(np.int32(nasion)), tuple(np.int32(pogonion)), LC, 2, cv2.LINE_AA)
+    cv2.line(img_proj, tuple(np.int32(subnasale)), tuple(np.int32(pogonion)), LC, 2, cv2.LINE_AA)
+    tvl_at_chin = (int(nasion[0]), int(pogonion[1]))
+    _draw_dashed_line_cv(img_proj, tuple(np.int32(pogonion)), tvl_at_chin, (0, 255, 255), 2, dash_len=4, gap_len=4)
+    for p in (nasion, nose_tip, subnasale, pogonion):
+        cv2.circle(img_proj, tuple(np.int32(p)), 5, (0, 255, 255), -1, cv2.LINE_AA)
+    proj_image_b64 = rgb_to_b64(img_proj)
+
+    # ── Chin-to-upper-lip ratio ──
+    upper_lip_height = abs(float(subnasale[1] - upper_lip[1]))
+    chin_height = abs(float(lower_lip[1] - pogonion[1]))
+    ratio = (chin_height / upper_lip_height) if upper_lip_height > 0 else 0.0
+    ideal_ratio = 1.40
+    diff = ratio - ideal_ratio
+    if abs(diff) < 0.15:
+        ratio_explanation = "Your chin-to-upper-lip ratio is close to the ideal proportion."
+    elif diff < 0:
+        ratio_explanation = "Your chin height is shorter than ideal relative to your upper lip."
+    else:
+        ratio_explanation = "Your chin height is taller than ideal relative to your upper lip."
+
+    img_ratio = img_rgb.copy()
+    tick_w = max(6, int(w * 0.015))
+    mid_x = int((lower_lip[0] + pogonion[0]) / 2)
+    cv2.line(img_ratio, (mid_x, int(lower_lip[1])), (mid_x, int(pogonion[1])), LC, 2, cv2.LINE_AA)
+    cv2.line(img_ratio, (mid_x - tick_w, int(lower_lip[1])), (mid_x + tick_w, int(lower_lip[1])), LC, 2, cv2.LINE_AA)
+    cv2.line(img_ratio, (mid_x - tick_w, int(pogonion[1])), (mid_x + tick_w, int(pogonion[1])), LC, 2, cv2.LINE_AA)
+    mid_x2 = int((subnasale[0] + upper_lip[0]) / 2 + w * 0.03)
+    _draw_dashed_line_cv(img_ratio, (mid_x2, int(subnasale[1])), (mid_x2, int(upper_lip[1])), (170, 170, 170), 1, dash_len=3, gap_len=3)
+    cv2.line(img_ratio, (mid_x2 - tick_w, int(subnasale[1])), (mid_x2 + tick_w, int(subnasale[1])), (170, 170, 170), 1, cv2.LINE_AA)
+    cv2.line(img_ratio, (mid_x2 - tick_w, int(upper_lip[1])), (mid_x2 + tick_w, int(upper_lip[1])), (170, 170, 170), 1, cv2.LINE_AA)
+    ratio_image_b64 = rgb_to_b64(img_ratio)
+
+    return {
+        "is_facing_right": is_facing_right,
+        "chin_projection_px": round(chin_projection_px, 2),
+        "normalized_projection": round(normalized_projection, 4),
+        "convexity_angle_deg": round(convexity_angle, 2),
+        "chin_balance_score": score,
+        "chin_balance_label": label,
+        "chin_balance_color": color,
+        "chin_balance_note": balance_note,
+        "chin_projection_image": proj_image_b64,
+        "upper_lip_height_px": round(upper_lip_height, 2),
+        "chin_height_px": round(chin_height, 2),
+        "chin_lip_ratio": round(ratio, 3),
+        "chin_lip_ideal_ratio": ideal_ratio,
+        "chin_lip_ratio_explanation": ratio_explanation,
+        "chin_lip_ratio_image": ratio_image_b64,
+    }
+
 
 # ─────────────────────────────────────────────
 # Segmentation
@@ -4351,6 +4590,10 @@ def analyze_all():
         }
 
         chm = metrics.get("chin", {})
+
+        # Advanced chin analysis: dimorphism/impression grid + synthetic outline (chin_analysis.ipynb)
+        chin_advanced = analyze_chin_impression(img_rgb, pts)
+
         chin_data = {
             "chin_width_mm":             _fmt(chm.get("chin_width_mm")),
             "chin_vertical_height_mm":   _fmt(chm.get("chin_vertical_height_mm")),
@@ -4363,6 +4606,8 @@ def analyze_all():
             # images (extracted via mediapipe)
             "chin_image_white": part_imgs["chin_mediapipe"]["white_bg"],
             "chin_image":       part_imgs["chin_mediapipe"]["cropped"],
+            # advanced analysis (impression/dimorphism grid)
+            **chin_advanced,
         }
 
         hm = metrics.get("hair", {})
@@ -4517,6 +4762,33 @@ def analyze_ear():
     except Exception as e:
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
+
+@app.route("/analyze_chin_side", methods=["POST"])
+def analyze_chin_side():
+    """
+    Separate endpoint for cephalometric chin projection + chin-to-upper-lip
+    ratio analysis using a SIDE PROFILE (45-60 deg) image (chin_analysis.ipynb).
+    """
+    if "chin_side" not in request.files:
+        return jsonify({"error": "No side profile image uploaded"}), 400
+
+    file = request.files["chin_side"]
+    try:
+        pil_img = Image.open(file.stream).convert("RGB")
+        img_rgb = pil_to_rgb(pil_img)
+    except Exception as e:
+        return jsonify({"error": f"Cannot open image: {e}"}), 400
+
+    try:
+        result = analyze_chin_side_advanced(img_rgb)
+        if result is None:
+            return jsonify({"error": "No face detected. Please upload a clear 45\u201360\u00b0 side profile photo."}), 400
+        return jsonify({"chin_side": result})
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/analyze_jaw", methods=["POST"])

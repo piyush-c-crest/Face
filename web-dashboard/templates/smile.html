@@ -209,14 +209,59 @@
         <div style="margin-top:24px;background:var(--card-bg);border:1px solid var(--border-color);border-radius:12px;padding:24px;box-shadow:0 2px 10px rgba(0,0,0,0.02);">
             <div class="grid-header" style="margin-bottom:16px;">Analysis Breakdown (Notebook Replicated)</div>
             
-            <h4 style="margin:20px 0 10px; color:var(--text-main);">1. Teeth Color Clustering (HSV)</h4>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:16px;margin-bottom:24px;">
-                <div><div class="metric-label" style="margin-bottom:8px;">Original Mouth Region</div><img id="imgOriginalMouth" style="width:100%;border-radius:8px;background:#000;aspect-ratio:1.5;object-fit:cover;"></div>
-                <div><div class="metric-label" style="margin-bottom:8px;">Segmentation Mask</div><img id="imgMask" style="width:100%;border-radius:8px;background:#000;aspect-ratio:1.5;object-fit:cover;"></div>
-                <div><div class="metric-label" style="margin-bottom:8px;">Extracted Smile Part</div><img id="imgExtracted" style="width:100%;border-radius:8px;background:#000;aspect-ratio:1.5;object-fit:cover;"></div>
-                <div><div class="metric-label" style="margin-bottom:8px;">K-means Clusters (n=5)</div><img id="imgClusters" style="width:100%;border-radius:8px;background:#000;aspect-ratio:1.5;object-fit:cover;"></div>
-                <div><div class="metric-label" style="margin-bottom:8px;">Dominant Colors Palette</div><img id="imgPalette" style="width:100%;border-radius:8px;background:#000;aspect-ratio:1.5;object-fit:cover;"></div>
-                <div><div class="metric-label" style="margin-bottom:8px;">Teeth Color Swatch</div><img id="imgSwatch" style="width:100%;border-radius:8px;background:#000;aspect-ratio:1.5;object-fit:cover;"></div>
+            <div style="margin-bottom:30px;">
+                <h2 style="font-size:24px; font-weight:bold; margin-bottom:4px; color:var(--text-main);">
+                    Your teeth are <span id="teethColorTitle" style="color:#789eb5;">...</span>
+                </h2>
+                <p style="color:var(--text-muted); font-size:14px; margin-bottom:20px;">
+                    Whiter teeth make the smile look cleaner and more <span style="font-weight:bold; color:var(--text-main);">attractive</span>.
+                </p>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: stretch;">
+                    <!-- Left Column -->
+                    <div style="display:flex; flex-direction:column; gap:20px;">
+                        <!-- Image Card -->
+                        <div style="background:#fcfcfc; border:1px solid #eee; border-radius:12px; display:flex; justify-content:center; align-items:center; min-height:250px; padding:20px;">
+                            <img id="imgSmileWhiteColor" style="max-width:100%; max-height:200px; object-fit:contain;">
+                        </div>
+                        
+                        <!-- Explanation Card -->
+                        <div style="background:#fcfcfc; border:1px solid #eee; border-radius:12px; padding:20px;">
+                            <div style="font-size:11px; font-weight:bold; color:#888; letter-spacing:1px; margin-bottom:40px;">EXPLANATION</div>
+                            <p id="teethExplanationText" style="color:var(--text-main); font-size:14px; line-height:1.5;">
+                                Your warm off-white tooth color looks natural for your age and skin tone so it supports a realistic smile rather than a high-contrast, bleached appearance.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Right Column (Slider) -->
+                    <div style="background:#fcfcfc; border:1px solid #eee; border-radius:12px; padding:20px; display:flex; justify-content:center; position:relative;">
+                        
+                        <!-- The vertical gradient bar -->
+                        <div style="width:12px; background:linear-gradient(to bottom, #d4b895 0%, #fdfdfd 50%, #dfbfa8 100%); border-radius:6px; position:relative; height:100%; min-height:400px; margin-right:40px;">
+                            
+                            <!-- The dynamic YOU marker -->
+                            <div id="teethYouMarker" style="position:absolute; right:-14px; top:50%; transform:translateY(-50%); display:flex; align-items:center; gap:8px; z-index:10; transition:top 0.5s ease;">
+                                <!-- Connector line -->
+                                <div style="width:14px; height:1px; background:#a0a0a0; border-top:1px dashed #a0a0a0;"></div>
+                                <!-- YOU Box -->
+                                <div style="background:#fff; border:1px solid #ddd; border-radius:4px; padding:4px 8px; font-size:11px; font-weight:bold; color:#888; box-shadow:0 1px 3px rgba(0,0,0,0.05);">YOU</div>
+                                <!-- Left side text box (dynamically updated to match color name) -->
+                                <div id="teethYouLabel" style="position:absolute; left:-230px; width:200px; text-align:right; font-size:12px; font-weight:bold; color:#999; letter-spacing:1px; text-transform:uppercase; background:#fff; border:1px solid #eee; padding:6px 12px; border-radius:4px; box-shadow:0 1px 3px rgba(0,0,0,0.05); display:flex; align-items:center; justify-content:flex-end; gap:8px;">
+                                    <div id="teethYouColorBox" style="width:12px; height:12px; background:#eee; border-radius:2px;"></div>
+                                    <span id="teethYouLabelText">LIGHT REDDISH YELLOWISH</span>
+                                </div>
+                                <div style="position:absolute; left:-14px; width:14px; height:1px; border-top:1px dashed #a0a0a0;"></div>
+                            </div>
+                            
+                            <!-- Static labels -->
+                            <div style="position:absolute; top:20%; left:20px; font-size:12px; color:#555; white-space:nowrap; display:flex; align-items:center;"><div style="width:12px; height:1px; background:#ddd; margin-right:6px;"></div>Reddish Yellowish</div>
+                            <div style="position:absolute; top:50%; left:20px; transform:translateY(-50%); font-size:12px; color:#555; white-space:nowrap; display:flex; align-items:center;"><div style="width:12px; height:1px; background:#ddd; margin-right:6px;"></div>White</div>
+                            <div style="position:absolute; top:75%; left:-130px; font-size:12px; color:#555; white-space:nowrap; display:flex; align-items:center; justify-content:flex-end; width:120px;">Light Reddish Brownish<div style="width:12px; height:1px; background:#ddd; margin-left:6px;"></div></div>
+                            <div style="position:absolute; top:90%; left:20px; font-size:12px; color:#555; white-space:nowrap; display:flex; align-items:center;"><div style="width:12px; height:1px; background:#ddd; margin-right:6px;"></div>Reddish Brownish</div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <h4 style="margin:20px 0 10px; color:var(--text-main);">2. Smile Width Analysis</h4>
@@ -275,13 +320,43 @@
         document.getElementById('valMouthEye').innerHTML=`${data.mouth_to_eye_ratio||'N/A'}<span></span>`;
         setMark('markerME', me, 0.8, 1.2);
         
-        // Load notebook images
-        if (data.smile_image) document.getElementById('imgOriginalMouth').src = data.smile_image;
-        if (data.mask_b64) document.getElementById('imgMask').src = data.mask_b64;
-        if (data.extracted_b64) document.getElementById('imgExtracted').src = data.extracted_b64;
-        if (data.clusters_b64) document.getElementById('imgClusters').src = data.clusters_b64;
-        if (data.palette_b64) document.getElementById('imgPalette').src = data.palette_b64;
-        if (data.swatch_b64) document.getElementById('imgSwatch').src = data.swatch_b64;
+        // Update Teeth Color UI
+        if (data.smile_image_white) document.getElementById('imgSmileWhiteColor').src = data.smile_image_white;
+        
+        let colorDesc = data.teeth_color || 'Unknown';
+        document.getElementById('teethColorTitle').innerText = colorDesc;
+        document.getElementById('teethYouLabelText').innerText = colorDesc.toUpperCase();
+        
+        // Explanations based on color
+        let expText = "Your tooth color looks natural for your age and skin tone.";
+        if (colorDesc === "Very Bright White") {
+            expText = "Your teeth are exceptionally bright and white, providing a high-contrast, striking appearance often associated with bleaching.";
+        } else if (colorDesc === "Bright White") {
+            expText = "Your teeth have a bright, clean white appearance that looks healthy and highly attractive.";
+        } else if (colorDesc === "Off-White / Cream") {
+            expText = "Your warm off-white tooth color looks natural for your age and skin tone so it supports a realistic smile rather than a high-contrast, bleached appearance.";
+        } else if (colorDesc === "Grayish White") {
+            expText = "Your teeth have a cooler, grayish hue which is common and natural, though slightly less bright than pure white.";
+        } else if (colorDesc === "Yellowish / Tinted") {
+            expText = "Your teeth have a warmer, slightly yellowish tint. Whitening treatments could help achieve a brighter, higher-contrast smile.";
+        }
+        document.getElementById('teethExplanationText').innerText = expText;
+        
+        // Position the YOU marker (0 to 100, where 0 is bottom/Brownish, 50 is center/White, 100 is top/Yellowish)
+        let score = data.teeth_color_score !== undefined ? data.teeth_color_score : 50;
+        // Map score 0-100 to top percentage 100%-0%
+        // E.g. score 100 (top) -> top 10%
+        // E.g. score 50 (center) -> top 50%
+        // E.g. score 0 (bottom) -> top 90%
+        let topPercent = 90 - (score / 100) * 80; // maps 0->90%, 100->10%
+        document.getElementById('teethYouMarker').style.top = topPercent + '%';
+        
+        // Update the little color box to match the tone roughly
+        let boxColor = '#fff';
+        if (score > 60) boxColor = '#eee0c8';
+        else if (score < 40) boxColor = '#dfbfa8';
+        else boxColor = '#fdfdfd';
+        document.getElementById('teethYouColorBox').style.background = boxColor;
         if (data.width_annotated_b64) document.getElementById('imgWidthAnnot').src = data.width_annotated_b64;
         if (data.width_chart_b64) document.getElementById('imgWidthChart').src = data.width_chart_b64;
         if (data.height_crop_b64) document.getElementById('imgHeightCrop').src = data.height_crop_b64;

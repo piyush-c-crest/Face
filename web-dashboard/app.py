@@ -2694,6 +2694,190 @@ def _ear_tilt_explanation(tilt_deg):
             f"giving it a neutral, upright orientation relative to the head.")
 
 
+def _ear_bracket(draw, p1, p2, tick_vec, color, width, tick_len):
+    """Draws a line from p1 to p2 with a short perpendicular tick at each end."""
+    draw.line([p1, p2], fill=color, width=width)
+    tx, ty = tick_vec
+    for p in (p1, p2):
+        end = (p[0] + tx * tick_len, p[1] + ty * tick_len)
+        draw.line([p, end], fill=color, width=width)
+
+
+def _ear_dashed_line(draw, p1, p2, color, width=2, dash_len=6, gap_len=5):
+    """Draws a dashed line from p1 to p2."""
+    x1, y1 = p1
+    x2, y2 = p2
+    length = math.hypot(x2 - x1, y2 - y1)
+    if length == 0:
+        return
+    ux, uy = (x2 - x1) / length, (y2 - y1) / length
+    dist = 0
+    while dist < length:
+        seg_start = (x1 + ux * dist, y1 + uy * dist)
+        seg_end_dist = min(dist + dash_len, length)
+        seg_end = (x1 + ux * seg_end_dist, y1 + uy * seg_end_dist)
+        draw.line([seg_start, seg_end], fill=color, width=width)
+        dist += dash_len + gap_len
+
+
+def draw_full_ear_measurements(img: Image.Image, pts, color=(255, 255, 255), width=2, tick_len=12):
+    """
+    Composite measurement figure: overall height, overall width, an upper dotted
+    reference line, concha width, a diagonal tilt-axis line, and a lobe-width
+    bracket \u2014 all in one image (used for the "Analysis of your ear shape" panel).
+    """
+    cropped, pts_c = _ear_crop_around(img, pts, pad_x_frac=0.75, pad_y_frac=0.45)
+    xs = [p[0] for p in pts_c]; ys = [p[1] for p in pts_c]
+    min_x, max_x = min(xs), max(xs); min_y, max_y = min(ys), max(ys)
+    ear_w, ear_h = max_x - min_x, max_y - min_y
+
+    draw = ImageDraw.Draw(cropped)
+
+    # 1. Overall height — vertical bracket to the left of the ear
+    vx = min_x - 30
+    _ear_bracket(draw, (vx, min_y), (vx, max_y), tick_vec=(1, 0), color=color, width=width, tick_len=tick_len)
+
+    # 2. Overall width — horizontal bracket above the ear
+    hy = min_y - 25
+    _ear_bracket(draw, (min_x, hy), (max_x, hy), tick_vec=(0, 1), color=color, width=width, tick_len=min_y - hy)
+
+    # 3. Upper-ear dotted reference line
+    dot_y = min_y + ear_h * 0.06
+    _ear_dashed_line(draw, (min_x, dot_y), (max_x, dot_y), color=color, width=width)
+
+    # 4. Concha (middle) width — horizontal bracket through the ear's center
+    mid_y = min_y + ear_h * 0.55
+    mx1, mx2 = min_x + ear_w * 0.25, max_x - ear_w * 0.08
+    _ear_bracket(draw, (mx1, mid_y), (mx2, mid_y), tick_vec=(0, -1), color=color, width=width, tick_len=tick_len * 0.7)
+
+    # 5. Diagonal tilt axis — top of ear to lower-outer edge
+    top_pt = min(pts_c, key=lambda p: p[1])
+    diag_end = (max_x - ear_w * 0.05, max_y)
+    draw.line([top_pt, diag_end], fill=color, width=width)
+    dx, dy = diag_end[0] - top_pt[0], diag_end[1] - top_pt[1]
+    seg_len = math.hypot(dx, dy)
+    perp = (-dy / seg_len, dx / seg_len) if seg_len else (0, 0)
+    half = tick_len * 0.6
+    draw.line([
+        (diag_end[0] - perp[0] * half, diag_end[1] - perp[1] * half),
+        (diag_end[0] + perp[0] * half, diag_end[1] + perp[1] * half),
+    ], fill=color, width=width)
+
+    # 6. Lobe width — small bracket near the bottom of the ear
+    lobe_y = max_y - ear_h * 0.12
+    lx1, lx2 = min_x + ear_w * 0.35, max_x - ear_w * 0.30
+    _ear_bracket(draw, (lx1, lobe_y), (lx2, lobe_y), tick_vec=(0, -1), color=color, width=width, tick_len=tick_len * 0.6)
+
+    return cropped
+
+
+def _ear_band_width(pts, y_frac_lo, y_frac_hi, min_y, max_y):
+    """Horizontal width of the ear polygon within a vertical band of its height."""
+    ear_h = max_y - min_y
+    if ear_h <= 0:
+        return 0.0
+    y_lo = min_y + ear_h * y_frac_lo
+    y_hi = min_y + ear_h * y_frac_hi
+    band = [p for p in pts if y_lo <= p[1] <= y_hi]
+    if not band:
+        return 0.0
+    xs = [p[0] for p in band]
+    return float(max(xs) - min(xs))
+
+
+def _lobe_corner_angle(pts, min_y, max_y):
+    """Angle (deg) at the ear's bottom tip between the left- and right-most points
+    of the lowest 15% band — a wide angle reads as a gently rounded lobe, a
+    narrow angle reads as a sharper/more angular lobe."""
+    ear_h = max_y - min_y
+    band = [p for p in pts if p[1] >= min_y + ear_h * 0.85]
+    if len(band) < 2:
+        return None
+    bottom_pt = max(band, key=lambda p: p[1])
+    left_pt = min(band, key=lambda p: p[0])
+    right_pt = max(band, key=lambda p: p[0])
+    v1 = (left_pt[0] - bottom_pt[0], left_pt[1] - bottom_pt[1])
+    v2 = (right_pt[0] - bottom_pt[0], right_pt[1] - bottom_pt[1])
+    n1, n2 = math.hypot(*v1), math.hypot(*v2)
+    if n1 == 0 or n2 == 0:
+        return None
+    cosang = max(-1.0, min(1.0, (v1[0] * v2[0] + v1[1] * v2[1]) / (n1 * n2)))
+    return math.degrees(math.acos(cosang))
+
+
+def _polygon_solidity(pts):
+    """Ratio of polygon area to its convex-hull area — a proxy for how much the
+    outline deviates from a smooth convex curve (used as an antihelix-definition proxy)."""
+    try:
+        arr = np.array(pts, dtype=np.float32)
+        area = cv2.contourArea(arr)
+        hull = cv2.convexHull(arr)
+        hull_area = cv2.contourArea(hull)
+        if hull_area <= 0:
+            return 1.0
+        return float(area / hull_area)
+    except Exception:
+        return 1.0
+
+
+def classify_earlobe_attachment(lobe_ratio):
+    if lobe_ratio is None: return 'N/A'
+    if lobe_ratio >= 0.55: return 'Attached'
+    if lobe_ratio >= 0.35: return 'Partially Attached'
+    return 'Free / Unattached'
+
+
+def classify_lobe_rise(corner_angle_deg):
+    if corner_angle_deg is None: return 'N/A'
+    return 'Gentle' if corner_angle_deg >= 130 else 'Sharp'
+
+
+def classify_antihelix(solidity):
+    if solidity is None: return 'N/A'
+    return 'Developed' if solidity <= 0.94 else 'Flat'
+
+
+def classify_helix(top_ratio):
+    if top_ratio is None: return 'N/A'
+    return 'Rounded' if top_ratio >= 0.45 else 'Angular'
+
+
+def classify_ear_overall_shape(w_h_ratio, solidity):
+    if w_h_ratio is None: return 'N/A'
+    if w_h_ratio < 0.42:
+        return 'Oval'
+    if w_h_ratio > 0.62:
+        return 'Square' if (solidity is not None and solidity > 0.93) else 'Triangular'
+    return 'Rounded'
+
+
+def _ear_shape_explanation(overall_shape, earlobe, lobe_rise, antihelix, helix):
+    lobe_bit = {
+        'Attached': 'a fully attached lobule that blends directly into the cheek',
+        'Partially Attached': 'a partially attached, cushioned lobule',
+        'Free / Unattached': 'a free-hanging lobule with a clear separation from the cheek',
+    }.get(earlobe, 'a lobule of undetermined attachment')
+
+    antihelix_bit = {
+        'Developed': 'a clearly developed antihelix, which gives a tall, smoothly contoured auricle with strong internal definition',
+        'Flat': 'a subtler, flatter antihelix fold that keeps the ear\u2019s profile smooth and understated',
+    }.get(antihelix, 'an antihelix of undetermined definition')
+
+    helix_bit = {
+        'Rounded': 'a rounded helix rim',
+        'Angular': 'a more angular helix rim',
+    }.get(helix, 'a helix rim of undetermined shape')
+
+    rise_bit = {
+        'Gentle': 'a gentle lobe rise',
+        'Sharp': 'a sharper lobe rise',
+    }.get(lobe_rise, 'an undetermined lobe rise')
+
+    shape_word = overall_shape.lower() if overall_shape and overall_shape != 'N/A' else 'balanced'
+    return (f"Your ears are {shape_word} with {lobe_bit} and {antihelix_bit}. "
+            f"Combined with {helix_bit} and {rise_bit}, this rounds out the overall auricle silhouette.")
+
+
 def extract_ear_roboflow(pil_img: Image.Image, mm_per_px: float = None):
     """
     Uses Roboflow API to segment the ear from a side-face image.
@@ -2702,7 +2886,9 @@ def extract_ear_roboflow(pil_img: Image.Image, mm_per_px: float = None):
       - overlay_b64: full image with ear outline + caliper measurement lines
       - metrics: dict with ear_height_mm, ear_width_mm, ear_height_px, ear_width_px,
                  ear_diagonal_length_px/mm
-      - features: dict with the 4 "other visual features" overlay images + tilt data
+      - features: dict with the 4 "other visual features" overlay images + tilt data,
+                  plus a "shape_analysis" entry with the full measurement diagram and
+                  earlobe / lobe-rise / antihelix / helix / overall-shape classification
     """
     import os
     try:
@@ -2727,7 +2913,7 @@ def extract_ear_roboflow(pil_img: Image.Image, mm_per_px: float = None):
             predictions_list = []
 
         if not predictions_list:
-            return None, None, {}
+            return None, None, {}, {}
 
         prediction = predictions_list[0]
         points = np.array([[p['x'], p['y']] for p in prediction['points']], dtype=np.int32)
@@ -2844,6 +3030,41 @@ def extract_ear_roboflow(pil_img: Image.Image, mm_per_px: float = None):
         except Exception as fe:
             print(f'[WARN] Ear feature overlay generation failed: {fe}')
             features = {}
+
+        # --- "Analysis of your ear shape" — composite diagram + geometric classification ---
+        try:
+            diagram_img = draw_full_ear_measurements(pil_img.convert('RGB'), pts_plain)
+            diagram_b64 = rgb_to_b64(np.array(diagram_img))
+
+            min_y_f, max_y_f = float(min_y), float(max_y)
+            lobe_w = _ear_band_width(pts_plain, 0.85, 1.00, min_y_f, max_y_f)
+            mid_w  = _ear_band_width(pts_plain, 0.45, 0.65, min_y_f, max_y_f)
+            top_w  = _ear_band_width(pts_plain, 0.00, 0.15, min_y_f, max_y_f)
+            lobe_ratio = (lobe_w / mid_w) if mid_w else None
+            top_ratio  = (top_w / ear_w_px) if ear_w_px else None
+            corner_angle = _lobe_corner_angle(pts_plain, min_y_f, max_y_f)
+            solidity = _polygon_solidity(pts_plain)
+            w_h_ratio = (ear_w_px / ear_h_px) if ear_h_px else None
+
+            earlobe_class   = classify_earlobe_attachment(lobe_ratio)
+            lobe_rise_class = classify_lobe_rise(corner_angle)
+            antihelix_class = classify_antihelix(solidity)
+            helix_class     = classify_helix(top_ratio)
+            overall_shape   = classify_ear_overall_shape(w_h_ratio, solidity)
+
+            features['shape_analysis'] = {
+                'diagram_image': diagram_b64,
+                'overall_shape': overall_shape,
+                'earlobe':       earlobe_class,
+                'lobe_rise':     lobe_rise_class,
+                'antihelix':     antihelix_class,
+                'helix':         helix_class,
+                'explanation':   _ear_shape_explanation(
+                    overall_shape, earlobe_class, lobe_rise_class, antihelix_class, helix_class
+                ),
+            }
+        except Exception as se:
+            print(f'[WARN] Ear shape analysis failed: {se}')
 
         return cropped_b64, overlay_b64, metrics, features
 

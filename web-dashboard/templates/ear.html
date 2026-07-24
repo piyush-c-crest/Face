@@ -87,6 +87,24 @@
         .feature-image-panel { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:20px; box-shadow:0 2px 10px rgba(0,0,0,0.02); display:flex; align-items:center; justify-content:center; min-height:300px; }
         .feature-image-panel img { max-width:100%; max-height:420px; width:auto; height:auto; object-fit:contain; border-radius:8px; }
         .feature-image-panel .no-image { font-size:13px; color:var(--text-secondary); }
+
+        /* Analysis of your ear shape */
+        .shape-section { margin-top:24px; }
+        .shape-header h2 { font-size:22px; font-weight:600; margin:0 0 8px 0; letter-spacing:-0.3px; background:#1e293b; color:#fff; display:inline-block; padding:6px 14px; border-radius:4px; }
+        .shape-header p { font-size:14px; color:var(--text-secondary); margin:12px 0 20px 0; line-height:1.5; }
+        .shape-layout { display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:start; }
+        .shape-diagram-panel { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:20px; box-shadow:0 2px 10px rgba(0,0,0,0.02); display:flex; align-items:center; justify-content:center; min-height:340px; }
+        .shape-diagram-panel img { max-width:100%; max-height:420px; width:auto; height:auto; object-fit:contain; border-radius:8px; }
+        .shape-right { display:flex; flex-direction:column; gap:16px; }
+        .shape-overall-card { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:32px 24px; text-align:center; box-shadow:0 2px 10px rgba(0,0,0,0.02); }
+        .shape-overall-value { font-size:26px; font-weight:600; color:var(--text-primary); }
+        .shape-detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+        .shape-detail-card { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:20px; box-shadow:0 2px 10px rgba(0,0,0,0.02); }
+        .shape-detail-label { font-family:monospace; font-size:10px; color:var(--text-highlight); text-transform:uppercase; letter-spacing:1px; margin-bottom:24px; font-weight:600; }
+        .shape-detail-value { font-size:19px; font-weight:500; color:var(--text-primary); }
+        .shape-explanation { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:24px; box-shadow:0 2px 10px rgba(0,0,0,0.02); }
+        .shape-explanation-label { font-family:monospace; font-size:10px; color:var(--text-highlight); text-transform:uppercase; letter-spacing:1px; margin-bottom:16px; font-weight:600; }
+        .shape-explanation-text { font-size:14px; color:var(--text-primary); line-height:1.6; margin:0; }
     </style>
 </head>
 <body>
@@ -199,6 +217,45 @@
                 </div>
             </div>
         </div>
+        <div id="shapeSection" class="shape-section" style="display:none;">
+            <div class="shape-header">
+                <h2>Analysis of your ear shape</h2>
+                <p>We've assessed your ears taking into account natural deviations and facial pose.</p>
+            </div>
+            <div class="shape-layout">
+                <div class="shape-diagram-panel">
+                    <img id="shapeDiagramImg" src="" alt="Full Ear Measurement Diagram" style="display:none;">
+                    <span class="no-image" id="shapeDiagramEmpty">No image available</span>
+                </div>
+                <div class="shape-right">
+                    <div class="shape-overall-card">
+                        <div class="shape-overall-value" id="shapeOverallValue">--</div>
+                    </div>
+                    <div class="shape-detail-grid">
+                        <div class="shape-detail-card">
+                            <div class="shape-detail-label">EARLOBE [A]</div>
+                            <div class="shape-detail-value" id="shapeEarlobeValue">--</div>
+                        </div>
+                        <div class="shape-detail-card">
+                            <div class="shape-detail-label">LOBE RISE [B]</div>
+                            <div class="shape-detail-value" id="shapeLobeRiseValue">--</div>
+                        </div>
+                        <div class="shape-detail-card">
+                            <div class="shape-detail-label">ANTIHELIX [C]</div>
+                            <div class="shape-detail-value" id="shapeAntihelixValue">--</div>
+                        </div>
+                        <div class="shape-detail-card">
+                            <div class="shape-detail-label">HELIX [D]</div>
+                            <div class="shape-detail-value" id="shapeHelixValue">--</div>
+                        </div>
+                    </div>
+                    <div class="shape-explanation">
+                        <div class="shape-explanation-label">Explanation</div>
+                        <p class="shape-explanation-text" id="shapeExplanationText">--</p>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div id="featuresSection" class="features-section" style="display:none;">
             <div class="features-header">
                 <h2>Other visual <span>features</span> of your ears</h2>
@@ -267,6 +324,21 @@
         }
     }
 
+    function initShapeAnalysis(shapeAnalysis){
+        if(!shapeAnalysis)return;
+        document.getElementById('shapeSection').style.display='block';
+        const img=document.getElementById('shapeDiagramImg');
+        const empty=document.getElementById('shapeDiagramEmpty');
+        if(shapeAnalysis.diagram_image){img.src=shapeAnalysis.diagram_image;img.style.display='block';empty.style.display='none';}
+        else{img.style.display='none';empty.style.display='block';}
+        setVal('shapeOverallValue',shapeAnalysis.overall_shape);
+        setVal('shapeEarlobeValue',shapeAnalysis.earlobe);
+        setVal('shapeLobeRiseValue',shapeAnalysis.lobe_rise);
+        setVal('shapeAntihelixValue',shapeAnalysis.antihelix);
+        setVal('shapeHelixValue',shapeAnalysis.helix);
+        document.getElementById('shapeExplanationText').innerText=shapeAnalysis.explanation||'No explanation available.';
+    }
+
     window.addEventListener('DOMContentLoaded',function(){
         const dataStr=sessionStorage.getItem('faceData_ear');
         const sideUploaded=sessionStorage.getItem('sideImageUploaded')==='true';
@@ -290,6 +362,7 @@
         if(data.ear_cropped)document.getElementById('earCroppedImg').src=data.ear_cropped;
         if(data.ear_overlay)document.getElementById('earOverlayImg').src=data.ear_overlay;
         initFeatures(data.features);
+        initShapeAnalysis(data.features&&data.features.shape_analysis?data.features.shape_analysis:null);
         const det=document.getElementById('earMetricsDetail');
         const rows=[
             ['Ear Height (px)',data.ear_height_px||'N/A'],

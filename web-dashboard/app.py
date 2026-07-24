@@ -3117,11 +3117,99 @@ def classify_smile_shape(curvature):
     if curvature < 0.08: return "Slightly Upturned"
     return "Strongly Upturned"
 
-def classify_teeth_exposure():
-    return "N/A"  # cannot be measured from static geometry
+def classify_teeth_exposure(exposed_ratio=None):
+    """Classify teeth exposure from pixel coverage ratio (0-1) within mouth region."""
+    if exposed_ratio is None: return "N/A"
+    if exposed_ratio < 0.05: return "Minimal"
+    if exposed_ratio < 0.25: return "Partial"
+    if exposed_ratio < 0.55: return "Moderate"
+    return "Full"
 
-def classify_teeth_color():
-    return "N/A"  # cannot be measured from geometry
+def classify_teeth_color(mean_l=None):
+    """Classify teeth whiteness from mean L* (CIE-Lab) of the teeth region."""
+    if mean_l is None: return "N/A"
+    if mean_l >= 85: return "Very White"
+    if mean_l >= 72: return "White"
+    if mean_l >= 58: return "Off-White / Slightly Yellow"
+    if mean_l >= 44: return "Yellow"
+    return "Dark / Stained"
+
+
+def analyze_smile_image(img_rgb):
+    """
+    Analyze a smiling face image to extract teeth exposure and color.
+    Returns dict with: teeth_exposure_ratio, teeth_mean_l,
+                       smile_image_b64, smile_image_white_b64
+    """
+    try:
+        import cv2
+        h, w = img_rgb.shape[:2]
+
+        import mediapipe as mp
+        mp_face = mp.solutions.face_mesh
+        with mp_face.FaceMesh(static_image_mode=True, max_num_faces=1,
+                               refine_landmarks=True, min_detection_confidence=0.4) as fm:
+            res = fm.process(img_rgb)
+
+        if not res.multi_face_landmarks:
+            return {}
+
+        lms = res.multi_face_landmarks[0].landmark
+        MOUTH_OUTER = [61, 185, 40, 39, 37, 0, 267, 269, 270, 409,
+                       291, 375, 321, 405, 314, 17, 84, 181, 91, 146]
+
+        pts_m = np.array([[int(lms[i].x * w), int(lms[i].y * h)]
+                          for i in MOUTH_OUTER], dtype=np.int32)
+        x1, y1 = pts_m[:, 0].min(), pts_m[:, 1].min()
+        x2, y2 = pts_m[:, 0].max(), pts_m[:, 1].max()
+
+        pad_x = max(10, int((x2 - x1) * 0.15))
+        pad_y = max(10, int((y2 - y1) * 0.15))
+        x1 = max(0, x1 - pad_x); y1 = max(0, y1 - pad_y)
+        x2 = min(w, x2 + pad_x); y2 = min(h, y2 + pad_y)
+
+        mouth_roi = img_rgb[y1:y2, x1:x2].copy()
+        if mouth_roi.size == 0:
+            return {}
+
+        roi_bgr = cv2.cvtColor(mouth_roi, cv2.COLOR_RGB2BGR)
+        roi_lab = cv2.cvtColor(roi_bgr, cv2.COLOR_BGR2Lab)
+        roi_hsv = cv2.cvtColor(roi_bgr, cv2.COLOR_BGR2HSV)
+
+        # Teeth: bright (L > 140/255), low saturation (S < 80/255)
+        L = roi_lab[:, :, 0].astype(np.float32)
+        S = roi_hsv[:, :, 1].astype(np.float32)
+        teeth_mask = ((L > 140) & (S < 80)).astype(np.uint8) * 255
+
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        teeth_mask = cv2.morphologyEx(teeth_mask, cv2.MORPH_OPEN,   kernel, iterations=1)
+        teeth_mask = cv2.morphologyEx(teeth_mask, cv2.MORPH_DILATE, kernel, iterations=1)
+
+        total_px = mouth_roi.shape[0] * mouth_roi.shape[1]
+        teeth_px = int(np.count_nonzero(teeth_mask))
+        exposure_ratio = round(teeth_px / max(total_px, 1), 4)
+
+        mean_l = None
+        if teeth_px > 0:
+            lab_l_vals = roi_lab[:, :, 0][teeth_mask > 0].astype(np.float32)
+            mean_l = round(float(lab_l_vals.mean()) * 100.0 / 255.0, 2)
+
+        cropped_b64  = rgb_to_b64(mouth_roi)
+        white_bg_arr = np.ones_like(mouth_roi, dtype=np.uint8) * 255
+        mask3        = cv2.cvtColor(teeth_mask, cv2.COLOR_GRAY2RGB)
+        teeth_on_white = np.where(mask3 > 0, mouth_roi, white_bg_arr)
+        white_b64 = rgb_to_b64(teeth_on_white)
+
+        return {
+            "teeth_exposure_ratio":  exposure_ratio,
+            "teeth_mean_l":          mean_l,
+            "smile_image_b64":       cropped_b64,
+            "smile_image_white_b64": white_b64,
+        }
+
+    except Exception:
+        traceback.print_exc()
+        return {}
 
 
 # Neck classifiers
@@ -4339,6 +4427,24 @@ def analyze_all():
     except Exception as e:
         return jsonify({"error": f"Cannot open image: {e}"}), 400
 
+    # Optional smile image for teeth analysis
+    smile_img_rgb = None
+    if "smile" in request.files:
+        try:
+            smile_pil = Image.open(request.files["smile"].stream).convert("RGB")
+            smile_img_rgb = pil_to_rgb(smile_pil)
+        except Exception:
+            smile_img_rgb = None
+
+    # Optional smile image for teeth analysis
+    smile_img_rgb = None
+    if "smile" in request.files:
+        try:
+            smile_pil = Image.open(request.files["smile"].stream).convert("RGB")
+            smile_img_rgb = pil_to_rgb(smile_pil)
+        except Exception:
+            smile_img_rgb = None
+
     try:
         # ── Segmentation ──
         labels = run_segmentation(pil_img)
@@ -4633,6 +4739,12 @@ def analyze_all():
         }
 
         sm = metrics.get("smile", {})
+
+        # Analyze dedicated smile image if uploaded (teeth exposure & color)
+        smile_img_analysis = {}
+        if smile_img_rgb is not None:
+            smile_img_analysis = analyze_smile_image(smile_img_rgb)
+
         smile_data = {
             "upper_smile_arc_curvature": _fmt(sm.get("upper_smile_arc_curvature"), 4),
             "lower_smile_arc_curvature": _fmt(sm.get("lower_smile_arc_curvature"), 4),
@@ -4640,11 +4752,13 @@ def analyze_all():
             # classifications
             "mouth_width_class": classify_smile_width(sm.get("smile_width_mm")),
             "smile_shape":       classify_smile_shape(sm.get("upper_smile_arc_curvature")),
-            "teeth_exposure":    classify_teeth_exposure(),
-            "teeth_color":       classify_teeth_color(),
-            # images (using combined lips as requested)
-            "smile_image_white": part_imgs["combined_lips"]["white_bg"],
-            "smile_image":       part_imgs["combined_lips"]["cropped"],
+            "teeth_exposure":    classify_teeth_exposure(smile_img_analysis.get("teeth_exposure_ratio")),
+            "teeth_color":       classify_teeth_color(smile_img_analysis.get("teeth_mean_l")),
+            # images: use dedicated smile upload if provided, otherwise fall back to lips crop
+            "smile_image_white": smile_img_analysis.get("smile_image_white_b64") or part_imgs["combined_lips"]["white_bg"],
+            "smile_image":       smile_img_analysis.get("smile_image_b64")       or part_imgs["combined_lips"]["cropped"],
+            # flag for the frontend
+            "has_smile_upload":  smile_img_rgb is not None,
         }
 
         neckm = metrics.get("neck", {})

@@ -453,8 +453,9 @@
     <input type="file" id="globalFileInput" accept="image/*" style="display: none;">
     <input type="file" id="sideFileInput" accept="image/*" style="display: none;">
     <input type="file" id="jawFileInput" accept="image/*" style="display: none;">
+    <input type="file" id="smileFileInput" accept="image/*" style="display: none;">
 
-    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 24px; margin-bottom: 24px;">
         <!-- Front Face Upload -->
         <div class="image-card" id="frontUploadCard" style="flex-direction: column; cursor: pointer; min-height: 200px;" onclick="document.getElementById('globalFileInput').click()">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-highlight); margin-bottom: 12px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
@@ -474,6 +475,13 @@
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-highlight); margin-bottom: 12px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
             <h2 style="margin:0; font-size: 17px; text-align: center;">45-Degree Image <br><span style="font-size:12px; color:var(--text-secondary); font-weight:400;">(for Jaw analysis)</span></h2>
             <p id="jawUploadLabel" style="color: var(--text-secondary); margin-top: 6px; font-size: 13px; text-align: center;">Click to upload (JPG, PNG)</p>
+        </div>
+
+        <!-- Smile Upload -->
+        <div class="image-card" id="smileUploadCard" style="flex-direction: column; cursor: pointer; min-height: 200px;" onclick="document.getElementById('smileFileInput').click()">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-highlight); margin-bottom: 12px;"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
+            <h2 style="margin:0; font-size: 17px; text-align: center;">Smile Image <br><span style="font-size:12px; color:var(--text-secondary); font-weight:400;">(for Smile analysis)</span></h2>
+            <p id="smileUploadLabel" style="color: var(--text-secondary); margin-top: 6px; font-size: 13px; text-align: center;">Click to upload (JPG, PNG)</p>
         </div>
     </div>
 
@@ -500,10 +508,12 @@
     let frontFile = null;
     let sideFile = null;
     let jawFile = null;
+    let smileFile = null;
 
     const gInput = document.getElementById('globalFileInput');
     const sInput = document.getElementById('sideFileInput');
     const jInput = document.getElementById('jawFileInput');
+    const smInput = document.getElementById('smileFileInput');
     const analyzeBtn = document.getElementById('analyzeBtn');
 
     function updateAnalyzeBtn() {
@@ -555,11 +565,26 @@
         updateAnalyzeBtn();
     });
 
+    smInput.addEventListener('change', (e) => {
+        smileFile = e.target.files[0];
+        if (smileFile) {
+            document.getElementById('smileUploadLabel').textContent = '✓ ' + smileFile.name;
+            document.getElementById('smileUploadLabel').style.color = '#22c55e';
+            // Store smile preview in sessionStorage
+            const reader = new FileReader();
+            reader.onload = (ev) => sessionStorage.setItem('smileImageDataUrl', ev.target.result);
+            reader.readAsDataURL(smileFile);
+            sessionStorage.setItem('smileImageUploaded', 'true');
+        }
+        updateAnalyzeBtn();
+    });
+
     analyzeBtn.addEventListener('click', async () => {
         if (!frontFile) return;
 
         const formData = new FormData();
         formData.append('front', frontFile);
+        if (smileFile) formData.append('smile', smileFile);
 
         document.getElementById('dashboard-loading').style.display = 'block';
         analyzeBtn.disabled = true;

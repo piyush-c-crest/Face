@@ -102,14 +102,14 @@
     <div id="results">
         <div class="image-card">
             <div style="text-align:center;">
-                <p style="font-size:11px;color:var(--text-highlight);margin-bottom:6px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Cropped (Raw Pixels)</p>
+                <p id="smileImgLabel1" style="font-size:11px;color:var(--text-highlight);margin-bottom:6px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Cropped (Raw Pixels)</p>
                 <img id="smileImage" src="" alt="Smile">
-                <p style="margin-top:6px;font-size:12px;color:var(--text-secondary);">Mouth Region</p>
+                <p id="smileImgCaption1" style="margin-top:6px;font-size:12px;color:var(--text-secondary);">Mouth Region</p>
             </div>
             <div style="text-align:center;">
-                <p style="font-size:11px;color:var(--text-highlight);margin-bottom:6px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Extracted (White BG)</p>
+                <p id="smileImgLabel2" style="font-size:11px;color:var(--text-highlight);margin-bottom:6px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Extracted (White BG)</p>
                 <img id="smileImageWB" src="" alt="Smile White BG">
-                <p style="margin-top:6px;font-size:12px;color:var(--text-secondary);">Mouth — Extracted</p>
+                <p id="smileImgCaption2" style="margin-top:6px;font-size:12px;color:var(--text-secondary);">Mouth — Extracted</p>
             </div>
         </div>
 
@@ -236,8 +236,19 @@
         if(img&&data.smile_image) img.src=data.smile_image;
         if(imgWB&&data.smile_image_white) imgWB.src=data.smile_image_white;
 
+        // Update image labels to show source
+        if(data.has_smile_upload){
+            const l1=document.getElementById('smileImgLabel1'),l2=document.getElementById('smileImgLabel2');
+            const c1=document.getElementById('smileImgCaption1'),c2=document.getElementById('smileImgCaption2');
+            if(l1) l1.textContent='SMILE PHOTO (UPLOADED)';
+            if(l2) l2.textContent='TEETH REGION (WHITE BG)';
+            if(c1) c1.textContent='Mouth — From Smile Photo';
+            if(c2) c2.textContent='Teeth — Extracted';
+        }
+
         const det=document.getElementById('smileMetricsDetail');
-        if(det){const rows=[['Upper Smile Arc Curvature',data.upper_smile_arc_curvature],['Lower Smile Arc Curvature',data.lower_smile_arc_curvature],['Smile Width',data.smile_width_mm?data.smile_width_mm+' mm':'N/A'],['Mouth Width Class',data.mouth_width_class],['Smile Shape',data.smile_shape],['Teeth Exposure','N/A'],['Teeth Color','N/A']];det.innerHTML=rows.map(([l,v])=>`<div class="metric-row"><span class="metric-label">${l}</span><span class="metric-val">${v||'N/A'}</span></div>`).join('');}
+        if(det){const rows=[['Upper Smile Arc Curvature',data.upper_smile_arc_curvature],['Lower Smile Arc Curvature',data.lower_smile_arc_curvature],['Smile Width',data.smile_width_mm?data.smile_width_mm+' mm':'N/A'],['Mouth Width Class',data.mouth_width_class],['Smile Shape',data.smile_shape],['Teeth Exposure',data.teeth_exposure],['Teeth Color',data.teeth_color]];det.innerHTML=rows.map(([l,v])=>`<div class="metric-row"><span class="metric-label">${l}</span><span class="metric-val">${v||'N/A'}</span></div>`).join('');}
+
     });
 </script>
 </body>

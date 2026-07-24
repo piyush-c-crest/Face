@@ -1692,7 +1692,7 @@ def analyze_cheeks_advanced(img_rgb, pts, labels):
                                  "creating a softer and more delicate facial silhouette without harsh shadows.")
 
         img_proj = img_rgb.copy()
-    _draw_dashed_line(img_proj, top_head, chin, LC, 1, dash_len=4, gap_len=4)
+        _draw_dashed_line(img_proj, top_head, chin, LC, 1, dash_len=4, gap_len=4)
         cv2.line(img_proj, tuple(np.int32(top_r)), tuple(np.int32(top_l)), LC, 2, cv2.LINE_AA)
         cv2.arrowedLine(img_proj, tuple(np.int32(top_r)), tuple(np.int32(top_r - 15 * u_top)), LC, 2, tipLength=0.4)
         cv2.arrowedLine(img_proj, tuple(np.int32(top_l)), tuple(np.int32(top_l + 15 * u_top)), LC, 2, tipLength=0.4)
@@ -3023,6 +3023,10 @@ def analyze_all():
         }
 
         cm = metrics.get("cheeks", {})
+
+        # ── Advanced cheek analysis: projection, definition/fullness, midface fWHR ──
+        cheeks_advanced = analyze_cheeks_advanced(img_rgb, pts, labels)
+
         cheeks_data = {
             "facial_width_mm":            _fmt(cm.get("facial_width_mm")),
             "malar_width_ratio":          _fmt(cm.get("malar_width_ratio"), 4),
@@ -3036,6 +3040,8 @@ def analyze_all():
             # images (extracted via mediapipe)
             "cheeks_image_white": part_imgs["cheeks_mediapipe"]["white_bg"],
             "cheeks_image":       part_imgs["cheeks_mediapipe"]["cropped"],
+            # advanced analysis (projection, definition, fWHR)
+            **cheeks_advanced,
         }
 
         jm = metrics.get("jaw", {})

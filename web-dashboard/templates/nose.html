@@ -441,6 +441,48 @@
         .analysis-metric-row { display:flex; justify-content:space-between; padding:10px 14px; background:#fafafa; border:1px solid var(--border-color); border-radius:8px; font-size:12px; }
         .analysis-metric-row .label { color: var(--text-secondary); font-weight:500; }
         .analysis-metric-row .value { color: var(--text-primary); font-weight:600; font-family: monospace; }
+
+        /* ── Other Visual Features (interactive tab selector) ── */
+        .nose-viz-layout { display: grid; grid-template-columns: 1fr 1.35fr; gap: 20px; }
+        .nose-viz-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-content: start; }
+        .nose-viz-card {
+            background: #fafafa;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            min-height: 130px;
+            display: flex;
+            align-items: flex-end;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .nose-viz-card:hover { border-color: #cbd5e1; }
+        .nose-viz-card.active {
+            background: #eef4f8;
+            border-color: #93c5fd;
+            box-shadow: 0 0 0 1px #93c5fd;
+        }
+        .nose-viz-card .nose-viz-card-title { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+        .nose-viz-image-panel {
+            background: #fafafa;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+            min-height: 280px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .nose-viz-image-panel img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .nose-viz-explanation-panel {
+            margin-top: 16px;
+            background: #fafafa;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px 24px;
+        }
+        .nose-viz-explanation-label { font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--text-highlight); margin-bottom: 10px; }
+        .nose-viz-explanation-text { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin: 0; }
     </style>
 </head>
 <body>
@@ -626,6 +668,23 @@
 
         </div>
 
+        <!-- Other Visual Features (interactive tab selector) -->
+        <div class="section-card">
+            <div class="section-title">Other visual <span style="color:var(--text-highlight); font-weight:500;">features</span> of your nose</div>
+            <div class="section-subtitle">Nasal <strong>morphology</strong> is <strong>highly individual</strong>, as numerous subtle anatomical and structural factors influence its overall aesthetics.</div>
+            <div class="nose-viz-layout">
+                <div class="nose-viz-grid" id="noseVizGrid">
+                </div>
+                <div class="nose-viz-image-panel">
+                    <img id="noseVizImage" src="" alt="Nose feature visualization">
+                </div>
+            </div>
+            <div class="nose-viz-explanation-panel">
+                <div class="nose-viz-explanation-label">Explanation</div>
+                <p class="nose-viz-explanation-text" id="noseVizExplanation">--</p>
+            </div>
+        </div>
+
         <!-- All Metrics Detail Table -->
         <div style="margin-top:24px; background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:24px; box-shadow:0 2px 10px rgba(0,0,0,0.02);">
             <div class="grid-header" style="margin-bottom:16px;">All Nose Metrics</div>
@@ -791,6 +850,36 @@
             bridgeBadge.innerText = data.bridge_thickness_assessment || 'N/A';
             bridgeBadge.style.background = data.bridge_thickness_badge_bg || '#f8fafc';
             bridgeBadge.style.color = data.bridge_thickness_badge_color || '#64748b';
+        }
+
+        // ── Other Visual Features (interactive tab selector) ──
+        const vizGrid = document.getElementById('noseVizGrid');
+        const vizImage = document.getElementById('noseVizImage');
+        const vizExplanation = document.getElementById('noseVizExplanation');
+        if (vizGrid && Array.isArray(data.visual_features) && data.visual_features.length) {
+            const features = data.visual_features;
+
+            function selectFeature(i) {
+                const f = features[i];
+                if (!f) return;
+                if (vizImage) vizImage.src = f.image || '';
+                if (vizExplanation) vizExplanation.innerText = f.explanation || 'N/A';
+                vizGrid.querySelectorAll('.nose-viz-card').forEach((el, idx) => {
+                    el.classList.toggle('active', idx === i);
+                });
+            }
+
+            vizGrid.innerHTML = features.map((f, i) => `
+                <div class="nose-viz-card${i === 0 ? ' active' : ''}" data-index="${i}">
+                    <div class="nose-viz-card-title">${f.title || 'N/A'}</div>
+                </div>
+            `).join('');
+
+            vizGrid.querySelectorAll('.nose-viz-card').forEach((el) => {
+                el.addEventListener('click', () => selectFeature(parseInt(el.dataset.index, 10)));
+            });
+
+            selectFeature(0);
         }
     });
 </script>

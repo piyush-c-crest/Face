@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Flask Face Parsing Dashboard
 Serves the face analysis web dashboard using:
@@ -1877,6 +1878,8 @@ def analyze_nose_advanced(img_rgb, pts):
         return pts[idx].astype(np.float32)
 
     empty_result = {
+        "nose_landmarks_image": None,
+
         "alar_flare_ratio": None, "alar_flare_assessment": "N/A",
         "alar_width_px": None, "eye_width_px": None,
         "r_alar_deviation_px": None, "l_alar_deviation_px": None,
@@ -1888,6 +1891,8 @@ def analyze_nose_advanced(img_rgb, pts):
         "bridge_vertical_span_px": None, "bridge_thickness_explanation": "N/A",
         "bridge_thickness_image": None,
         "bridge_thickness_badge_bg": "#f8fafc", "bridge_thickness_badge_color": "#64748b",
+
+        "visual_features": [],
     }
 
     try:
@@ -1897,6 +1902,25 @@ def analyze_nose_advanced(img_rgb, pts):
         R_INNER_CANTHUS, L_INNER_CANTHUS = 133, 362
         UPPER_LEFT, UPPER_RIGHT = 193, 417
         LOWER_RIGHT, LOWER_LEFT = 456, 236
+
+        # ══ 0. VISIBLE NOSTRILS — nose extraction with landmark lines (notebook cell 14) ══
+        p_bridge0 = get_pt(NOSE_BRIDGE)
+        p_tip0 = get_pt(NOSE_TIP)
+        p_base0 = get_pt(SUBNASALE)
+        p_r_ala0, p_l_ala0 = get_pt(R_ALA), get_pt(L_ALA)
+
+        img_landmarks = img_rgb.copy()
+        LC0 = (255, 255, 255)
+        cv2.line(img_landmarks, tuple(np.int32(p_bridge0)), tuple(np.int32(p_tip0)), LC0, 1, cv2.LINE_AA)
+        cv2.line(img_landmarks, tuple(np.int32(p_tip0)), tuple(np.int32(p_base0)), LC0, 1, cv2.LINE_AA)
+        cv2.line(img_landmarks, tuple(np.int32(p_r_ala0)), tuple(np.int32(p_l_ala0)), LC0, 1, cv2.LINE_AA)
+        tick_len = 10
+        for pt in (p_r_ala0, p_l_ala0):
+            pt_i = np.int32(pt)
+            cv2.line(img_landmarks, (pt_i[0], pt_i[1] - tick_len), (pt_i[0], pt_i[1] + tick_len), LC0, 1, cv2.LINE_AA)
+
+        landmarks_crop_pts = np.array([p_bridge0, p_tip0, p_base0, p_r_ala0, p_l_ala0])
+        nose_landmarks_image_b64 = rgb_to_b64(_nose_region_crop(img_landmarks, landmarks_crop_pts, pad_mult=0.9))
 
         # ══ 1. ALAR FLARE ANALYSIS ══
         p_r_ala, p_l_ala = get_pt(R_ALA), get_pt(L_ALA)
@@ -1983,7 +2007,25 @@ def analyze_nose_advanced(img_rgb, pts):
         bridge_crop_pts = np.array([p_glabella, p_ul, p_ur, p_lr, p_ll, p_nose_tip])
         bridge_image_b64 = rgb_to_b64(_nose_region_crop(img_bridge, bridge_crop_pts, pad_mult=1.1))
 
+        # Static (non-computed) feature copy, matching notebook framing
+        visible_nostrils_explanation = ("Your nostrils are clearly visible from the frontal view, with a "
+                                         "well-defined nasal tip-to-base contour and evenly proportioned alar width.")
+        supratip_break_title = "No Supratip Break"
+        supratip_break_explanation = ("Your nasal profile transitions smoothly from the supratip area into the "
+                                       "tip without a visible break or step-off, giving the dorsum a continuous, "
+                                       "straight line down to the tip.")
+        supratip_image_b64 = rgb_to_b64(img_rgb)
+
+        visual_features = [
+            {"title": "Visible Nostrils", "explanation": visible_nostrils_explanation, "image": nose_landmarks_image_b64},
+            {"title": supratip_break_title, "explanation": supratip_break_explanation, "image": supratip_image_b64},
+            {"title": alar_assessment, "explanation": alar_explanation, "image": alar_image_b64},
+            {"title": bridge_assessment, "explanation": bridge_explanation, "image": bridge_image_b64},
+        ]
+
         return {
+            "nose_landmarks_image": nose_landmarks_image_b64,
+
             "alar_flare_ratio": round(alar_flare_ratio, 3),
             "alar_flare_assessment": alar_assessment,
             "alar_width_px": round(alar_distance, 1),
@@ -2004,6 +2046,8 @@ def analyze_nose_advanced(img_rgb, pts):
             "bridge_thickness_image": bridge_image_b64,
             "bridge_thickness_badge_bg": bridge_badge_bg,
             "bridge_thickness_badge_color": bridge_badge_color,
+
+            "visual_features": visual_features,
         }
     except Exception as e:
         print(f"[WARN] Advanced nose analysis failed: {e}")

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jaw Aesthetic Analysis</title>
+    <meta name="description" content="Detailed jaw aesthetic analysis: shape, width ratio, impression, and visual features.">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -12,7 +13,9 @@
             --text-highlight: #94a3b8; --border-color: #f1f5f9;
             --bar-bg: #e2e8f0; --bar-fill: #94a3b8;
             --marker-color: #1e293b; --tooltip-bg: #64748b;
+            --accent: #2c4144; --accent-light: #c6d5db;
         }
+        * { box-sizing: border-box; }
         body { margin:0; font-family:'Inter',sans-serif; background:var(--bg-color); color:var(--text-primary); display:flex; height:100vh; overflow:hidden; }
         .sidebar { width:250px; background:var(--sidebar-bg); border-right:1px solid var(--border-color); padding:32px 0; overflow-y:auto; flex-shrink:0; }
         .sidebar-menu { list-style:none; padding:0; margin:0; font-size:14px; color:var(--text-secondary); }
@@ -28,12 +31,24 @@
         .main-content { flex-grow:1; padding:40px; overflow-y:auto; }
         .header h1 { font-size:32px; font-weight:600; margin:0 0 12px 0; letter-spacing:-0.5px; }
         .header h1 span { color:var(--text-highlight); }
-        .header p { font-size:15px; color:var(--text-secondary); margin:0 0 32px 0; }
+        .header p { font-size:15px; color:var(--text-secondary); margin:0 0 32px 0; line-height:1.5; }
         .header p strong { color:var(--text-primary); font-weight:600; }
-        .image-card { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:40px; margin-bottom:24px; display:flex; justify-content:center; align-items:center; gap: 40px; min-height:180px; box-shadow:0 2px 10px rgba(0,0,0,0.02); }
-        .image-card img { width: 300px; height: 300px; object-fit: contain; border-radius: 12px; }
-        .bottom-split { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
-        .grid-header { font-size:18px; font-weight:500; margin-bottom:16px; }
+
+        /* Cards */
+        .card { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,0.02); }
+        .section-title { font-size:11px; color:var(--text-highlight); text-transform:uppercase; letter-spacing:1px; font-weight:600; margin-bottom:4px; font-family:monospace; }
+        .section-heading { font-size:20px; font-weight:600; margin:0 0 8px 0; letter-spacing:-0.3px; }
+        .section-desc { font-size:13px; color:var(--text-secondary); line-height:1.6; margin:0 0 20px 0; }
+
+        /* Image pair card */
+        .image-card { padding:40px; margin-bottom:24px; display:flex; justify-content:center; align-items:center; gap:40px; min-height:180px; }
+        .image-card img { width:300px; height:300px; object-fit:contain; border-radius:12px; transition:opacity 0.3s; }
+        .img-label { font-size:11px; color:var(--text-highlight); font-weight:600; letter-spacing:1px; text-transform:uppercase; margin-bottom:6px; }
+
+        /* 2-col grid */
+        .two-col { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:24px; }
+
+        /* Summary cards */
         .metric-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
         .class-card { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:24px 20px; position:relative; box-shadow:0 2px 10px rgba(0,0,0,0.02); transition:all 0.2s; cursor:default; }
         .class-card:hover { border-color:#cbd5e1; }
@@ -43,7 +58,9 @@
         .class-card .tooltip::after { content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%); border-width:6px; border-style:solid; border-color:var(--tooltip-bg) transparent transparent transparent; }
         .class-card .tooltip .tooltip-title { font-family:monospace; font-size:10px; text-transform:uppercase; margin-bottom:8px; font-weight:600; color:#f8fafc; }
         .class-card:hover .tooltip { opacity:1; visibility:visible; transform:translateX(-50%) translateY(-5px); }
-        .carousel-container { position:relative; background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,0.02); overflow:hidden; min-height:350px; }
+
+        /* Carousel */
+        .carousel-container { position:relative; border-radius:12px; overflow:hidden; min-height:340px; }
         .carousel-nav { position:absolute; top:24px; right:24px; display:flex; gap:8px; align-items:center; color:#cbd5e1; font-size:14px; z-index:20; user-select:none; }
         .carousel-nav .arrow { cursor:pointer; padding:0 4px; transition:color 0.2s; }
         .carousel-nav .arrow:hover { color:var(--text-primary); }
@@ -55,23 +72,70 @@
         .range-card.next { transform:translateX(100%); }
         .range-card h3 { margin:0 0 8px 0; font-size:18px; font-weight:500; }
         .range-card h3 .highlight { color:var(--text-highlight); }
-        .range-card p.desc { font-size:13px; color:var(--text-secondary); margin:0 0 32px 0; line-height:1.5; max-width:85%; }
-        .range-box { background:#fafafa; border-radius:8px; padding:24px; border:1px solid #f1f5f9; }
+        .range-card p.desc { font-size:13px; color:var(--text-secondary); margin:0 0 24px 0; line-height:1.5; max-width:90%; }
+        .range-box { background:#fafafa; border-radius:8px; padding:20px; border:1px solid #f1f5f9; }
         .range-box-header { display:flex; justify-content:space-between; font-family:monospace; font-size:10px; color:var(--text-highlight); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px; font-weight:600; }
-        .range-value { font-size:28px; font-weight:600; margin-bottom:40px; }
+        .range-value { font-size:28px; font-weight:600; margin-bottom:32px; }
         .range-value span { font-size:14px; font-weight:500; margin-left:2px; color:var(--text-primary); }
         .slider-container { position:relative; height:40px; }
         .slider-track { position:absolute; bottom:20px; left:0; right:0; height:4px; background:var(--bar-bg); border-radius:2px; }
         .slider-fill { position:absolute; bottom:20px; height:4px; background:var(--bar-fill); border-radius:2px; }
         .slider-marker { position:absolute; bottom:24px; width:4px; height:4px; background:var(--marker-color); transform:translateX(-50%); transition:left 0.5s ease-out; }
         .slider-marker::after { content:''; position:absolute; top:4px; left:50%; transform:translateX(-50%); width:1px; height:12px; background:var(--bar-fill); }
-        .slider-labels { position:absolute; bottom:0; left:0; right:0; display:flex; justify-content:space-between; font-size:12px; font-weight:600; }
-        .slider-labels span { font-size:10px; font-weight:500; }
-        #results { display:none; }
+        .slider-labels { position:absolute; bottom:0; left:0; right:0; display:flex; justify-content:space-between; font-size:10px; font-weight:500; }
+
+        /* Metrics table */
         .metric-row { display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border-radius:8px; background:#f8fafc; border:1px solid var(--border-color); font-size:13px; }
         .metric-row:hover { background:#f1f5f9; }
         .metric-label { color:var(--text-secondary); font-weight:500; }
         .metric-val { color:var(--text-primary); font-weight:600; }
+
+        /* Jaw Shape (Front) — canvas polygon section */
+        .jaw-shape-section { display:grid; grid-template-columns:1fr 1fr; gap:0; border-radius:12px; overflow:hidden; margin-bottom:24px; }
+        .jaw-shape-img-panel { position:relative; background:#1a1a1a; }
+        .jaw-shape-img-panel img { width:100%; height:100%; object-fit:cover; display:block; opacity:0.85; }
+        .jaw-shape-data-panel { background:#fff; display:flex; flex-direction:column; }
+        .jaw-canvas-wrap { background:#f8fafc; border:1px solid var(--border-color); border-radius:8px; overflow:hidden; position:relative; }
+        canvas#jawShapeCanvas { width:100%; display:block; }
+        .jaw-canvas-legend { display:flex; gap:16px; margin-top:10px; }
+        .jaw-legend-dot { width:10px; height:10px; border-radius:2px; flex-shrink:0; margin-top:2px; }
+
+        /* Jaw-to-Cheek Ratio */
+        .ratio-section { display:grid; grid-template-columns:1fr 1fr; gap:0; border-radius:12px; overflow:hidden; margin-bottom:24px; }
+        .ratio-img-panel img { width:100%; height:100%; object-fit:cover; display:block; }
+        .ratio-bars-wrap { display:flex; gap:32px; align-items:flex-end; justify-content:center; padding:16px 0 8px 0; height:180px; }
+        .bar-group { display:flex; gap:6px; align-items:flex-end; }
+        .bar-col { display:flex; flex-direction:column; align-items:center; gap:4px; }
+        .bar-stick { width:14px; border-radius:3px 3px 0 0; transition:height 0.6s ease; }
+        .bar-stick.jaw-bar { background:var(--accent); }
+        .bar-stick.cheek-bar { background:var(--accent-light); }
+        .bar-col-label { font-size:9px; font-family:monospace; font-weight:600; color:var(--text-highlight); text-transform:uppercase; letter-spacing:0.5px; }
+
+        /* Jaw Impression — 9x9 grid */
+        .impression-section { display:grid; grid-template-columns:1fr 1fr; gap:0; border-radius:12px; overflow:hidden; margin-bottom:24px; }
+        .impression-grid-wrap { position:relative; padding:24px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+        .grid-9x9 { display:grid; grid-template-columns:repeat(9,1fr); gap:4px; }
+        .grid-cell { width:26px; height:26px; border-radius:4px; background:#f2f4f5; transition:background 0.3s; }
+        .grid-cell.active-cell { background:var(--accent) !important; }
+        .grid-axis-labels { display:flex; justify-content:space-between; font-family:monospace; font-size:9px; font-weight:600; color:var(--text-highlight); text-transform:uppercase; letter-spacing:0.5px; margin-top:8px; width:100%; }
+
+        /* Other Visual Features */
+        .features-section { border-radius:12px; overflow:hidden; margin-bottom:24px; }
+        .features-tabs { display:grid; grid-template-columns:repeat(4,1fr); gap:0; }
+        .feat-tab { padding:20px 16px; cursor:pointer; border-right:1px solid var(--border-color); border-bottom:1px solid var(--border-color); background:#fff; transition:all 0.2s; text-align:center; }
+        .feat-tab:last-child { border-right:none; }
+        .feat-tab.active { background:#f8fafc; }
+        .feat-tab-label { font-family:monospace; font-size:9px; color:var(--text-highlight); text-transform:uppercase; letter-spacing:0.5px; font-weight:600; margin-bottom:6px; }
+        .feat-tab-title { font-size:13px; font-weight:500; color:var(--text-primary); line-height:1.3; }
+        .feat-tab:hover .feat-tab-title { color:var(--accent); }
+        .feat-content { display:none; grid-template-columns:1fr 1fr; border-top:1px solid var(--border-color); }
+        .feat-content.active { display:grid; }
+        .feat-img { background:#f8fafc; }
+        .feat-img img { width:100%; height:100%; object-fit:cover; display:block; max-height:380px; }
+        .feat-explanation { padding:32px; background:#fff; display:flex; flex-direction:column; justify-content:center; }
+
+        #results { display:none; }
+        .explanation-box { background:#f8fafc; border:1px solid var(--border-color); border-radius:8px; padding:16px 20px; font-size:13px; color:var(--text-secondary); line-height:1.6; }
     </style>
 </head>
 <body>
@@ -95,14 +159,12 @@
             <li onclick="window.location.href='/neck'">Neck</li>
             <li onclick="window.location.href='/ear'">Ear</li>
             <li onclick="window.location.href='/skin'">Skin</li>
-            <li>Skin</li>
         </ul>
         <li class="collapsed">Protocol</li>
     </ul>
 </div>
 
 <div class="main-content">
-
     <div class="header">
         <h1>An overview of your <span>jaw</span></h1>
         <p>Your jawline defines the lower face boundary, contributing to <strong>facial structure</strong>, gender dimorphism, and overall aesthetic balance.</p>
@@ -110,22 +172,24 @@
 
     <div id="results">
 
-        <div class="image-card">
+        <!-- ── IMAGE PAIR ── -->
+        <div class="card image-card" style="margin-bottom:24px;">
             <div style="text-align:center;">
-                <p style="font-size:11px;color:var(--text-highlight);margin-bottom:6px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Landmarks Only</p>
+                <p class="img-label">Landmarks Only</p>
                 <img id="jawImage" src="" alt="Jaw Landmarks">
                 <p id="jawImageLabel" style="margin-top:6px;font-size:12px;color:var(--text-secondary);">478 MediaPipe Landmarks</p>
             </div>
             <div style="text-align:center;">
-                <p style="font-size:11px;color:var(--text-highlight);margin-bottom:6px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Dynamic Mask</p>
+                <p class="img-label">Dynamic Mask</p>
                 <img id="jawImageWB" src="" alt="Jaw Mask">
                 <p id="jawImageWBLabel" style="margin-top:6px;font-size:12px;color:var(--text-secondary);">Jaw Region Highlight</p>
             </div>
         </div>
 
-        <div class="bottom-split">
+        <!-- ── SUMMARY CARDS + CAROUSEL ── -->
+        <div class="two-col">
             <div>
-                <div class="grid-header">Summary of Jaw Features</div>
+                <div style="font-size:18px;font-weight:500;margin-bottom:16px;">Summary of Jaw Features</div>
                 <div class="metric-grid">
                     <div class="class-card">
                         <div class="tooltip"><div class="tooltip-title">JAW DEFINITION</div>How angular and defined the jawline appears based on the frontal jaw rise.</div>
@@ -138,7 +202,17 @@
                         <div class="class-value" id="valJawWidth">--</div>
                     </div>
                     <div class="class-card">
-                        <div class="tooltip"><div class="tooltip-title">JAW SHAPE</div>Shape classification derived from the jaw inclination angles.</div>
+                        <div class="tooltip"><div class="tooltip-title">JAW SHAPE (FRONT)</div>Frontal mandibular outline — U-shaped (rounded) or V-shaped (tapered).</div>
+                        <div class="class-label">JAW SHAPE (FRONT)</div>
+                        <div class="class-value" id="valJawShapeFront">--</div>
+                    </div>
+                    <div class="class-card">
+                        <div class="tooltip"><div class="tooltip-title">JAW-TO-CHEEK RATIO</div>Bigonial width divided by bizygomatic (cheek) width. Ideal ≈ 0.90.</div>
+                        <div class="class-label">JAW-TO-CHEEK RATIO</div>
+                        <div class="class-value" id="valJawRatio">--</div>
+                    </div>
+                    <div class="class-card">
+                        <div class="tooltip"><div class="tooltip-title">JAW SHAPE (INCLINATION)</div>Shape derived from jaw inclination angles.</div>
                         <div class="class-label">JAW SHAPE</div>
                         <div class="class-value" id="valJawShape">--</div>
                     </div>
@@ -151,28 +225,27 @@
             </div>
 
             <div>
-                <div class="carousel-container">
-                    <div class="carousel-nav">
-                        <div class="arrow" onclick="prevSlide()">&lt;</div>
+                <div class="card carousel-container">
+                    <div class="carousel-nav" id="carouselNav">
+                        <div class="arrow" onclick="prevSlide()">&#60;</div>
                         <div class="dot active" onclick="goToSlide(0)"></div>
                         <div class="dot" onclick="goToSlide(1)"></div>
                         <div class="dot" onclick="goToSlide(2)"></div>
-                        <div class="arrow" onclick="nextSlide()">&gt;</div>
+                        <div class="dot" onclick="goToSlide(3)"></div>
+                        <div class="arrow" onclick="nextSlide()">&#62;</div>
                     </div>
 
                     <div class="range-card active" id="slide-0">
                         <h3>Frontal Jaw <span class="highlight">Rise</span></h3>
-                        <p class="desc">Vertical drop from the gonion (jaw angle) to the menton (chin tip). Higher = more defined, angular jawline.</p>
+                        <p class="desc">Vertical drop from the gonion (jaw angle) to the menton (chin tip). Higher = more angular jawline.</p>
                         <div class="range-box">
                             <div class="range-box-header"><div>FRONTAL JAW RISE</div><div>LANDMARK-BASED</div></div>
-                            <div class="range-value" id="valJawRise">--<span>°</span></div>
+                            <div class="range-value" id="valJawRise">--<span>mm</span></div>
                             <div class="slider-container">
                                 <div class="slider-track"></div>
                                 <div class="slider-fill" style="left:15%;right:15%;"></div>
                                 <div class="slider-marker" id="markerRise" style="left:50%;"></div>
-                                <div class="slider-labels" style="padding:0 10%;">
-                                    <div>50.73°</div><div>71.89°</div>
-                                </div>
+                                <div class="slider-labels" style="padding:0 10%;"><span>50 mm</span><span>72 mm</span></div>
                             </div>
                         </div>
                     </div>
@@ -187,16 +260,14 @@
                                 <div class="slider-track"></div>
                                 <div class="slider-fill" style="left:15%;right:15%;"></div>
                                 <div class="slider-marker" id="markerWidth" style="left:50%;"></div>
-                                <div class="slider-labels" style="padding:0 10%;">
-                                    <div>90 mm</div><div>140 mm</div>
-                                </div>
+                                <div class="slider-labels" style="padding:0 10%;"><span>90 mm</span><span>140 mm</span></div>
                             </div>
                         </div>
                     </div>
 
                     <div class="range-card next" id="slide-2">
                         <h3>Jaw Inclination <span class="highlight">Angle</span></h3>
-                        <p class="desc">Right and left jaw inclination angles. Smaller = sharper V/U shape. Larger = more square jaw.</p>
+                        <p class="desc">Right and left jaw inclination angles. Smaller = sharper shape. Larger = more square jaw.</p>
                         <div class="range-box">
                             <div class="range-box-header"><div>JAW INCLINATION ANGLE (AVG)</div><div>LANDMARK-BASED</div></div>
                             <div class="range-value" id="valJawAngleMm">--<span>°</span></div>
@@ -204,9 +275,22 @@
                                 <div class="slider-track"></div>
                                 <div class="slider-fill" style="left:15%;right:15%;"></div>
                                 <div class="slider-marker" id="markerAngle" style="left:50%;"></div>
-                                <div class="slider-labels" style="padding:0 10%;">
-                                    <div>30°</div><div>80°</div>
-                                </div>
+                                <div class="slider-labels" style="padding:0 10%;"><span>30°</span><span>80°</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="range-card next" id="slide-3">
+                        <h3>Jaw-to-Cheek <span class="highlight">Ratio</span></h3>
+                        <p class="desc">Bigonial width divided by bizygomatic width. Ideal ratio is ≈ 0.90 (jaw slightly narrower than cheeks).</p>
+                        <div class="range-box">
+                            <div class="range-box-header"><div>JAW / CHEEK RATIO</div><div>LANDMARK-BASED</div></div>
+                            <div class="range-value" id="valRatioSlide">--<span> ratio</span></div>
+                            <div class="slider-container">
+                                <div class="slider-track"></div>
+                                <div class="slider-fill" style="left:15%;right:15%;"></div>
+                                <div class="slider-marker" id="markerRatio" style="left:50%;"></div>
+                                <div class="slider-labels" style="padding:0 10%;"><span>0.70</span><span>1.10</span></div>
                             </div>
                         </div>
                     </div>
@@ -214,17 +298,133 @@
             </div>
         </div>
 
-        <div style="margin-top:24px;background:var(--card-bg);border:1px solid var(--border-color);border-radius:12px;padding:24px;box-shadow:0 2px 10px rgba(0,0,0,0.02);">
-            <div class="grid-header" style="margin-bottom:16px;">All Jaw Metrics</div>
+        <!-- ── JAW SHAPE (FRONT) ── -->
+        <div class="card jaw-shape-section" style="margin-bottom:24px;">
+            <div class="jaw-shape-img-panel">
+                <img id="jawShapeFrontImg" src="" alt="Jaw Shape Analysis">
+            </div>
+            <div class="jaw-shape-data-panel" style="padding:32px;">
+                <div class="section-title">YOUR JAW SHAPE</div>
+                <div class="section-heading" id="jawShapeTitle">--</div>
+                <div class="section-desc">The frontal jaw angle, measured from the Gonion to the Menton, determines how inclined or flat your lower third appears.</div>
+
+                <div class="jaw-canvas-wrap" style="margin-bottom:16px;">
+                    <canvas id="jawShapeCanvas" width="400" height="220"></canvas>
+                </div>
+
+                <div class="jaw-canvas-legend" style="margin-bottom:16px;">
+                    <div style="display:flex;align-items:flex-start;gap:8px;">
+                        <div class="jaw-legend-dot" style="background:#8fa3ad;"></div>
+                        <span style="font-size:11px;font-weight:600;font-family:monospace;color:var(--text-secondary);">YOU</span>
+                    </div>
+                    <div style="display:flex;align-items:flex-start;gap:8px;">
+                        <div class="jaw-legend-dot" style="background:#c6d5db;border:1px dashed #8fa3ad;"></div>
+                        <span style="font-size:11px;font-weight:600;font-family:monospace;color:var(--text-secondary);">AVERAGE REFERENCE</span>
+                    </div>
+                </div>
+
+                <div class="explanation-box" id="jawShapeExplanation">--</div>
+            </div>
+        </div>
+
+        <!-- ── JAW-TO-CHEEK WIDTH RATIO ── -->
+        <div class="card ratio-section" style="margin-bottom:24px;">
+            <div class="ratio-img-panel">
+                <img id="jawRatioImg" src="" alt="Jaw-to-Cheek Ratio" style="width:100%;height:100%;object-fit:cover;display:block;">
+            </div>
+            <div style="padding:32px;background:#fff;">
+                <div class="section-title">JAW-TO-CHEEK RATIO</div>
+                <div class="section-heading">A closer look at your jaw width</div>
+                <div class="section-desc">The frontal appearance of the jaw is relative to the width of the face. A wider jaw creates a more angular, boxy appearance while a narrower jawline gives the face a softer look.</div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:20px;">
+                    <div>
+                        <div style="font-family:monospace;font-size:10px;color:var(--text-highlight);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">YOUR PROPORTION</div>
+                        <div style="font-size:15px;font-weight:600;" id="yourProportionLabel">--</div>
+                        <div class="ratio-bars-wrap" style="height:140px;padding:8px 0 4px 0;">
+                            <div class="bar-group">
+                                <div class="bar-col">
+                                    <div class="bar-stick jaw-bar" id="barYouJaw" style="height:60px;"></div>
+                                    <div class="bar-col-label">Jaw</div>
+                                </div>
+                                <div class="bar-col">
+                                    <div class="bar-stick cheek-bar" id="barYouCheek" style="height:80px;"></div>
+                                    <div class="bar-col-label">Cheek</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="font-size:22px;font-weight:700;" id="yourRatioValue">--</div>
+                    </div>
+                    <div>
+                        <div style="font-family:monospace;font-size:10px;color:var(--text-highlight);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">IDEAL PROPORTION</div>
+                        <div style="font-size:15px;font-weight:600;">Jaw &lt; Cheek</div>
+                        <div class="ratio-bars-wrap" style="height:140px;padding:8px 0 4px 0;">
+                            <div class="bar-group">
+                                <div class="bar-col">
+                                    <div class="bar-stick jaw-bar" id="barIdealJaw" style="height:60px;"></div>
+                                    <div class="bar-col-label">Jaw</div>
+                                </div>
+                                <div class="bar-col">
+                                    <div class="bar-stick cheek-bar" id="barIdealCheek" style="height:70px;"></div>
+                                    <div class="bar-col-label">Cheek</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="font-size:22px;font-weight:700;">0.90 : 1.00</div>
+                    </div>
+                </div>
+                <div class="explanation-box" id="jawRatioExplanation">--</div>
+            </div>
+        </div>
+
+        <!-- ── JAW IMPRESSION (DIMORPHISM) ── -->
+        <div class="card impression-section" style="margin-bottom:24px;">
+            <div style="position:relative;background:#f8f9fa;">
+                <img id="jawImpressionImg" src="" alt="Jaw Impression" style="width:100%;height:100%;object-fit:cover;display:block;">
+            </div>
+            <div style="padding:32px;background:#fff;">
+                <div class="section-title">YOUR JAW IMPRESSION</div>
+                <div class="section-heading">Jaw dimorphism</div>
+                <div class="section-desc">As a primary dimorphic trait, your jaw influences your perceived masculinity or femininity and strength or delicacy.</div>
+
+                <div class="impression-grid-wrap" style="padding:0;">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+                        <div style="font-family:monospace;font-size:9px;font-weight:600;color:var(--text-highlight);text-transform:uppercase;letter-spacing:0.5px;writing-mode:vertical-rl;transform:rotate(180deg);">DELICATE → STRONG</div>
+                        <div>
+                            <div class="grid-9x9" id="impressionGrid"></div>
+                            <div class="grid-axis-labels"><span>FEMININE</span><span>MASCULINE</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="explanation-box" id="jawImpressionExplanation" style="margin-top:16px;">--</div>
+            </div>
+        </div>
+
+        <!-- ── OTHER VISUAL FEATURES ── -->
+        <div class="card features-section" style="margin-bottom:24px;">
+            <div style="padding:24px 32px 16px 32px;border-bottom:1px solid var(--border-color);">
+                <div class="section-title">OTHER VISUAL FEATURES</div>
+                <div class="section-heading">Subtle variations of your jaw</div>
+                <div class="section-desc" style="margin-bottom:0;">Subtle variations in jaw size, angles, and shape influence facial definition, balance, and the perception of strength or delicacy.</div>
+            </div>
+            <div class="features-tabs" id="featuresTabs"></div>
+            <div id="featuresContentArea"></div>
+        </div>
+
+        <!-- ── ALL METRICS TABLE ── -->
+        <div class="card" style="padding:24px;margin-bottom:24px;">
+            <div style="font-size:18px;font-weight:500;margin-bottom:16px;">All Jaw Metrics</div>
             <div id="jawMetricsDetail" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 32px;"></div>
         </div>
 
-    </div>
-</div>
+    </div><!-- /results -->
+</div><!-- /main-content -->
 
 <script>
+    // ── Carousel ──
     let currentSlide = 0;
-    const totalSlides = 3;
+    const totalSlides = 4;
 
     function updateCarousel() {
         for (let i = 0; i < totalSlides; i++) {
@@ -240,46 +440,196 @@
     function prevSlide(){ currentSlide=(currentSlide-1+totalSlides)%totalSlides; updateCarousel(); }
     function goToSlide(i){ currentSlide=i; updateCarousel(); }
 
-    function setVal(id,v){ const el=document.getElementById(id); if(el) el.innerText=(v!==undefined&&v!==null&&v!==''&&v!=='N/A')?v:'N/A'; }
-    function setMark(id, val, min, max){ const p=15+((val-min)/(max-min))*70; document.getElementById(id).style.left=`${Math.max(5,Math.min(95,p))}%`; }
+    // ── Helpers ──
+    function setVal(id, v) {
+        const el = document.getElementById(id);
+        if (el) el.innerText = (v !== undefined && v !== null && v !== '' && v !== 'N/A') ? v : 'N/A';
+    }
+    function setMark(id, val, min, max) {
+        const p = 15 + ((val - min) / (max - min)) * 70;
+        document.getElementById(id).style.left = `${Math.max(5, Math.min(95, p))}%`;
+    }
+    function setImg(id, b64) {
+        const el = document.getElementById(id);
+        if (el && b64) el.src = 'data:image/jpeg;base64,' + b64;
+    }
 
+    // ── Draw jaw shape polygon on canvas ──
+    function drawJawCanvas(normPts, avgPts) {
+        const canvas = document.getElementById('jawShapeCanvas');
+        if (!canvas || !normPts || normPts.length === 0) return;
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width, H = canvas.height;
+        ctx.clearRect(0, 0, W, H);
+
+        // Light grid
+        ctx.strokeStyle = '#f0f0f0';
+        ctx.lineWidth = 1;
+        for (let x = 0; x <= W; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+        for (let y = 0; y <= H; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+        // Map normalized coords to canvas
+        // normPts x range: [-0.5, 0.5], y range: [-0.2, 0.9]
+        const scaleX = W * 0.70;
+        const scaleY = H * 0.60;
+        const cx = W / 2, cy = H * 0.15;
+
+        function toCanvas(p) {
+            return [cx + p[0] * scaleX, cy + p[1] * scaleY];
+        }
+
+        // Draw average reference (dashed)
+        if (avgPts && avgPts.length > 0) {
+            ctx.save();
+            ctx.setLineDash([5, 4]);
+            ctx.strokeStyle = '#8fa3ad';
+            ctx.lineWidth = 1.5;
+            ctx.fillStyle = 'rgba(198,213,219,0.35)';
+            ctx.beginPath();
+            const p0a = toCanvas(avgPts[0]);
+            ctx.moveTo(p0a[0], p0a[1]);
+            avgPts.forEach(p => { const cp = toCanvas(p); ctx.lineTo(cp[0], cp[1]); });
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // Draw user's jaw shape (filled)
+        ctx.save();
+        ctx.setLineDash([5, 3]);
+        ctx.strokeStyle = '#8fa3ad';
+        ctx.lineWidth = 2;
+        ctx.fillStyle = 'rgba(198,213,219,0.6)';
+        ctx.beginPath();
+        const p0 = toCanvas(normPts[0]);
+        ctx.moveTo(p0[0], p0[1]);
+        normPts.forEach(p => { const cp = toCanvas(p); ctx.lineTo(cp[0], cp[1]); });
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    // ── Build 9x9 impression grid ──
+    function buildImpressionGrid(gridX, gridY) {
+        const container = document.getElementById('impressionGrid');
+        if (!container) return;
+        container.innerHTML = '';
+        // grid_y=0 top is DELICATE, grid_y=8 is STRONG
+        // We invert visually: top row = STRONG, bottom = DELICATE
+        for (let row = 0; row < 9; row++) {
+            for (let col = 0; col < 9; col++) {
+                const cell = document.createElement('div');
+                cell.className = 'grid-cell';
+                // row 0 = strong (grid_y=8), row 8 = delicate (grid_y=0)
+                if (col === gridX && row === (8 - gridY)) {
+                    cell.classList.add('active-cell');
+                }
+                container.appendChild(cell);
+            }
+        }
+    }
+
+    // ── Build features tabs ──
+    function buildFeatures(features) {
+        const tabsEl = document.getElementById('featuresTabs');
+        const contentEl = document.getElementById('featuresContentArea');
+        if (!tabsEl || !contentEl || !features || features.length === 0) return;
+
+        tabsEl.innerHTML = '';
+        contentEl.innerHTML = '';
+
+        features.forEach((feat, i) => {
+            // Tab
+            const tab = document.createElement('div');
+            tab.className = 'feat-tab' + (i === 0 ? ' active' : '');
+            tab.dataset.idx = i;
+            tab.innerHTML = `<div class="feat-tab-label">FEATURE ${i+1}</div><div class="feat-tab-title">${feat.title}</div>`;
+            tab.onclick = () => {
+                document.querySelectorAll('.feat-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.feat-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(`feat-content-${i}`).classList.add('active');
+            };
+            tabsEl.appendChild(tab);
+
+            // Content panel
+            const panel = document.createElement('div');
+            panel.className = 'feat-content' + (i === 0 ? ' active' : '');
+            panel.id = `feat-content-${i}`;
+            panel.innerHTML = `
+                <div class="feat-img">
+                    <img src="${feat.image ? 'data:image/jpeg;base64,' + feat.image : ''}"
+                         alt="${feat.title}" onerror="this.style.display='none'">
+                </div>
+                <div class="feat-explanation">
+                    <div style="font-family:monospace;font-size:10px;color:var(--text-highlight);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">EXPLANATION</div>
+                    <div style="font-size:15px;font-weight:600;margin-bottom:14px;">${feat.title}</div>
+                    <div class="explanation-box">${feat.explanation}</div>
+                </div>
+            `;
+            contentEl.appendChild(panel);
+        });
+    }
+
+    // ── Bar height helper (% of max 120px container) ──
+    function setPct(id, pct) {
+        const el = document.getElementById(id);
+        if (el) el.style.height = Math.max(4, pct * 1.2) + 'px'; // 100% -> 120px
+    }
+
+    // ── Main ──
     window.addEventListener('DOMContentLoaded', () => {
         const dataStr = sessionStorage.getItem('faceData_jaw');
         if (!dataStr) {
-            const b=document.createElement('div');
-            b.innerHTML='<div style="background:var(--text-highlight);color:white;padding:15px;text-align:center;border-radius:8px;margin-bottom:20px;font-weight:bold;">No Face Data Found! Please go to Dashboard and upload your image first.</div>';
-            document.querySelector('.header').after(b); return;
+            const b = document.createElement('div');
+            b.innerHTML = '<div style="background:var(--text-highlight);color:white;padding:15px;text-align:center;border-radius:8px;margin-bottom:20px;font-weight:bold;">No Face Data Found! Please go to Dashboard and upload your image first.</div>';
+            document.querySelector('.header').after(b);
+            return;
         }
         const data = JSON.parse(dataStr);
         if (data.error) { alert(data.error); return; }
 
         document.getElementById('results').style.display = 'block';
 
-        setVal('valDefinition', data.definition);
-        setVal('valJawWidth',   data.width_class);
-        setVal('valJawShape',   data.shape);
-        setVal('valJawAngle',   data.angle);
+        // Summary cards
+        setVal('valDefinition',    data.definition);
+        setVal('valJawWidth',      data.width_class);
+        setVal('valJawShape',      data.shape);
+        setVal('valJawAngle',      data.angle);
+        setVal('valJawShapeFront', data.jaw_shape_front);
+        setVal('valJawRatio', data.jaw_to_cheek_ratio ? parseFloat(data.jaw_to_cheek_ratio).toFixed(2) : '--');
 
+        // Carousel slides
         const rise = parseFloat(data.frontal_jaw_rise_mm) || 0;
         const wMm  = parseFloat(data.jaw_width_mm) || 0;
         const ang  = parseFloat(data.right_jaw_inclination_angle_deg) || 0;
+        const rat  = parseFloat(data.jaw_to_cheek_ratio) || 0;
 
-        document.getElementById('valJawRise').innerHTML   = `${data.frontal_jaw_rise_mm||'N/A'}<span>°</span>`;
-        document.getElementById('valJawWidthMm').innerHTML = `${data.jaw_width_mm||'N/A'}<span> mm</span>`;
-        document.getElementById('valJawAngleMm').innerHTML = `${data.angle||'N/A'}<span>°</span>`;
+        document.getElementById('valJawRise').innerHTML = `${data.frontal_jaw_rise_mm || 'N/A'}<span> mm</span>`;
+        document.getElementById('valJawWidthMm').innerHTML = `${data.jaw_width_mm || 'N/A'}<span> mm</span>`;
+        document.getElementById('valJawAngleMm').innerHTML = `${data.angle || 'N/A'}<span>°</span>`;
+        document.getElementById('valRatioSlide').innerHTML = `${rat ? rat.toFixed(2) : 'N/A'}<span> ratio</span>`;
 
-        setMark('markerRise',  rise, 50.73, 71.89);
+        setMark('markerRise',  rise, 50,  72);
         setMark('markerWidth', wMm,  90, 140);
-        setMark('markerAngle', ang,  30, 80);
+        setMark('markerAngle', ang,  30,  80);
+        setMark('markerRatio', rat,  0.70, 1.10);
 
-        const img=document.getElementById('jawImage'), imgWB=document.getElementById('jawImageWB');
-        
+        // Frontal image pair — try to fetch side/45° image first
+        const img   = document.getElementById('jawImage');
+        const imgWB = document.getElementById('jawImageWB');
         const jawDataUrl = sessionStorage.getItem('jawImageDataUrl');
+
+        function loadFallbackImages() {
+            if (img && data.jaw_image)       img.src = 'data:image/jpeg;base64,' + data.jaw_image;
+            if (imgWB && data.jaw_image_white) imgWB.src = 'data:image/jpeg;base64,' + data.jaw_image_white;
+        }
+
         if (jawDataUrl) {
-            // Show a basic loading indicator while fetching
-            if(img) img.style.opacity = '0.5';
-            if(imgWB) imgWB.style.opacity = '0.5';
-            
+            if (img)   img.style.opacity = '0.5';
+            if (imgWB) imgWB.style.opacity = '0.5';
             fetch(jawDataUrl)
                 .then(res => res.blob())
                 .then(blob => {
@@ -290,40 +640,68 @@
                 .then(r => r.json())
                 .then(res => {
                     if (res.jaw) {
-                        if(img) { img.src = res.jaw.jaw_cropped; img.style.opacity = '1'; }
-                        if(imgWB) { imgWB.src = res.jaw.jaw_overlay; imgWB.style.opacity = '1'; }
-                        document.getElementById('jawImageLabel').innerText = "45-Degree Landmarks";
-                        document.getElementById('jawImageWBLabel').innerText = "45-Degree Jaw Mask";
-                    } else if (res.error) {
-                        console.error(res.error);
-                        alert("Error analyzing jaw: " + res.error);
+                        if (img)   { img.src = 'data:image/jpeg;base64,' + res.jaw.jaw_cropped; img.style.opacity = '1'; }
+                        if (imgWB) { imgWB.src = 'data:image/jpeg;base64,' + res.jaw.jaw_overlay; imgWB.style.opacity = '1'; }
+                        document.getElementById('jawImageLabel').innerText = '45-Degree Landmarks';
+                        document.getElementById('jawImageWBLabel').innerText = '45-Degree Jaw Mask';
+                    } else {
+                        loadFallbackImages();
+                        if (img)   img.style.opacity = '1';
+                        if (imgWB) imgWB.style.opacity = '1';
                     }
                 })
-                .catch(err => {
-                    console.error(err);
-                    if(img) { img.src = data.jaw_image; img.style.opacity = '1'; }
-                    if(imgWB) { imgWB.src = data.jaw_image_white; imgWB.style.opacity = '1'; }
-                });
+                .catch(() => { loadFallbackImages(); if(img) img.style.opacity='1'; if(imgWB) imgWB.style.opacity='1'; });
         } else {
-            // Fallback to front face jaw data
-            if(img && data.jaw_image)    img.src=data.jaw_image;
-            if(imgWB && data.jaw_image_white) imgWB.src=data.jaw_image_white;
+            loadFallbackImages();
         }
 
-        const det=document.getElementById('jawMetricsDetail');
-        if(det){
-            const rows=[
-                ['Jaw Width',                     data.jaw_width_mm ? data.jaw_width_mm+' mm' : 'N/A'],
-                ['Frontal Jaw Rise',               data.frontal_jaw_rise_mm ? data.frontal_jaw_rise_mm+'°' : 'N/A'],
-                ['Right Jaw Inclination Angle',    data.right_jaw_inclination_angle_deg ? data.right_jaw_inclination_angle_deg+'°' : 'N/A'],
-                ['Left Jaw Inclination Angle',     data.left_jaw_inclination_angle_deg ? data.left_jaw_inclination_angle_deg+'°' : 'N/A'],
-                ['Face Width',                     data.face_width_mm ? data.face_width_mm+' mm' : 'N/A'],
-                ['Definition Classification',      data.definition],
-                ['Width Classification',           data.width_class],
-                ['Shape Classification',           data.shape],
-                ['Avg Angle Classification',       data.angle],
+        // ── Jaw Shape (Front) ──
+        setImg('jawShapeFrontImg', data.jaw_shape_front_image);
+        setVal('jawShapeTitle', data.jaw_shape_front_title);
+        setVal('jawShapeExplanation', data.jaw_shape_front_explanation);
+        drawJawCanvas(data.jaw_normalized_pts, data.jaw_avg_pts);
+
+        // ── Jaw-to-Cheek Ratio ──
+        setImg('jawRatioImg', data.jaw_to_cheek_image);
+        setVal('yourProportionLabel', data.jaw_proportion_label);
+        setVal('yourRatioValue', rat ? rat.toFixed(2) + ' : 1.00' : '--');
+        setVal('jawRatioExplanation', data.jaw_to_cheek_explanation);
+
+        const maxH = 100;
+        setPct('barYouJaw',    (data.jaw_bar_you_pct   || 0) * maxH / 100);
+        setPct('barYouCheek',  (data.jaw_bar_cheek_pct || 0) * maxH / 100);
+        setPct('barIdealJaw',  (data.jaw_bar_ideal_jaw_pct  || 0) * maxH / 100);
+        setPct('barIdealCheek',(data.jaw_bar_ideal_cheek_pct || 0) * maxH / 100);
+
+        // ── Jaw Impression Grid ──
+        setImg('jawImpressionImg', data.jaw_impression_image);
+        buildImpressionGrid(data.jaw_impression_grid_x || 4, data.jaw_impression_grid_y || 4);
+        setVal('jawImpressionExplanation', data.jaw_impression_explanation);
+
+        // ── Other Visual Features ──
+        buildFeatures(data.jaw_visual_features || []);
+
+        // ── All Metrics Table ──
+        const det = document.getElementById('jawMetricsDetail');
+        if (det) {
+            const rows = [
+                ['Jaw Width',                   data.jaw_width_mm ? data.jaw_width_mm + ' mm' : 'N/A'],
+                ['Frontal Jaw Rise',             data.frontal_jaw_rise_mm ? data.frontal_jaw_rise_mm + ' mm' : 'N/A'],
+                ['Right Jaw Inclination Angle',  data.right_jaw_inclination_angle_deg ? data.right_jaw_inclination_angle_deg + '°' : 'N/A'],
+                ['Left Jaw Inclination Angle',   data.left_jaw_inclination_angle_deg  ? data.left_jaw_inclination_angle_deg  + '°' : 'N/A'],
+                ['Face Width',                   data.face_width_mm ? data.face_width_mm + ' mm' : 'N/A'],
+                ['Jaw-to-Cheek Ratio',           rat ? rat.toFixed(3) : 'N/A'],
+                ['Jaw Shape (Front)',            data.jaw_shape_front || 'N/A'],
+                ['Jaw Impression: Masc. Axis',   data.jaw_impression_grid_x !== undefined ? data.jaw_impression_grid_x + '/8' : 'N/A'],
+                ['Jaw Impression: Strength Axis', data.jaw_impression_grid_y !== undefined ? data.jaw_impression_grid_y + '/8' : 'N/A'],
+                ['Definition Classification',    data.definition || 'N/A'],
+                ['Width Classification',         data.width_class || 'N/A'],
+                ['Shape Classification',         data.shape || 'N/A'],
+                ['Avg Angle Classification',     data.angle || 'N/A'],
             ];
-            det.innerHTML=rows.map(([l,v])=>`<div class="metric-row"><span class="metric-label">${l}</span><span class="metric-val">${v||'N/A'}</span></div>`).join('');
+            det.innerHTML = rows.map(([l,v]) =>
+                `<div class="metric-row"><span class="metric-label">${l}</span><span class="metric-val">${v}</span></div>`
+            ).join('');
         }
     });
 </script>

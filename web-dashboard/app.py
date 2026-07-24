@@ -442,7 +442,6 @@ def extract_jaw_mediapipe(pil_img: Image.Image):
     left_ear_z = face_landmarks[454].z
     right_ear_z = face_landmarks[234].z
     facing_left = right_ear_z < left_ear_z  # Right ear is closer to camera
-    
     if facing_left:
         jawline_indices = [234, 93, 132, 58, 172, 136, 150, 149, 176, 148, 152]
         ear_idx = 234
@@ -478,7 +477,6 @@ def extract_jaw_mediapipe(pil_img: Image.Image):
         # Only include points behind the front cutoff line
         if (facing_left and pt_x <= front_x) or (not facing_left and pt_x >= front_x):
             jawline_pts.append([pt_x, pt_y])
-            
     jawline_pts = jawline_pts[::-1]
     polygon_pts.extend(jawline_pts)
     
@@ -501,6 +499,315 @@ def extract_jaw_mediapipe(pil_img: Image.Image):
     highlight_b64 = rgb_to_b64(highlight_image)
     
     return dots_b64, highlight_b64
+
+
+# ─────────────────────────────────────────────
+# Jaw — Advanced Analysis (from mediapipe_jaw_cleaned.ipynb)
+# ─────────────────────────────────────────────
+
+def _draw_dashed_line_cv(img, p1, p2, color, thickness=2, dash_len=8, gap_len=6):
+    """Draw a dashed line on a numpy image using cv2."""
+    x1, y1 = int(p1[0]), int(p1[1])
+    x2, y2 = int(p2[0]), int(p2[1])
+    length = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+    if length == 0:
+        return
+    ux, uy = (x2 - x1) / length, (y2 - y1) / length
+    d = 0.0
+    while d < length:
+        sx = int(x1 + ux * d)
+        sy = int(y1 + uy * d)
+        ex = int(x1 + ux * min(d + dash_len, length))
+        ey = int(y1 + uy * min(d + dash_len, length))
+        cv2.line(img, (sx, sy), (ex, ey), color, thickness, cv2.LINE_AA)
+        d += dash_len + gap_len
+
+
+def analyze_jaw_advanced(img_rgb, pts):
+    """
+    Extended jaw analysis mirroring mediapipe_jaw_cleaned.ipynb:
+      1. Jaw Shape (Front) - V vs U polygon from jawline landmarks
+      2. Jaw-to-Cheek Ratio - bigonial/bizygomatic ratio
+      3. Jaw Impression Grid - 9x9: Feminine<->Masculine / Delicate<->Strong
+      4. Other Visual Features - 4 annotated images
+    Returns a flat dict for merging into jaw_data.
+    """
+    h, w = img_rgb.shape[:2]
+
+    def get_pt(idx):
+        return pts[idx].astype(np.float32)
+
+    LC = (255, 255, 255)
+
+    empty_result = {
+        "jaw_shape_front": "N/A", "jaw_shape_front_title": "N/A",
+        "jaw_shape_front_explanation": "N/A", "jaw_shape_front_image": None,
+        "jaw_normalized_pts": [], "jaw_avg_pts": [],
+        "jaw_to_cheek_ratio": None, "jaw_to_cheek_label": "N/A",
+        "jaw_to_cheek_explanation": "N/A", "jaw_to_cheek_image": None,
+        "jaw_bar_you_pct": 0, "jaw_bar_cheek_pct": 0,
+        "jaw_bar_ideal_jaw_pct": 0, "jaw_bar_ideal_cheek_pct": 0,
+        "jaw_proportion_label": "N/A",
+        "jaw_impression_grid_x": 4, "jaw_impression_grid_y": 4,
+        "jaw_impression_explanation": "N/A", "jaw_impression_image": None,
+        "jaw_visual_features": [],
+    }
+
+    try:
+        # Shared tight face crop
+        all_pts_int = pts.astype(np.int32)
+        fx, fy, fw_box, fh_box = cv2.boundingRect(all_pts_int)
+        pad_x = int(fw_box * 0.10)
+        pad_y = int(fh_box * 0.12)
+        fx1 = max(0, fx - pad_x)
+        fy1 = max(0, fy - pad_y)
+        fx2 = min(w, fx + fw_box + pad_x)
+        fy2 = min(h, fy + fh_box + pad_y)
+
+        def crop_face(im):
+            c = im[fy1:fy2, fx1:fx2]
+            return c if c.size else im
+
+        # ── 1. JAW SHAPE (FRONT) ──
+        jaw_indices = [132, 136, 150, 149, 176, 148, 152, 377, 400, 378, 379, 365, 361]
+        jaw_pts = np.array([get_pt(i) for i in jaw_indices])
+        left_gonion  = get_pt(132)
+        right_gonion = get_pt(361)
+        menton       = get_pt(152)
+        center       = (left_gonion + right_gonion) / 2.0
+
+        vec = right_gonion - left_gonion
+        angle_rot = np.arctan2(vec[1], vec[0])
+        cos_a, sin_a = np.cos(-angle_rot), np.sin(-angle_rot)
+        rot_mat = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
+
+        norm_pts = np.array([rot_mat @ (p - center) for p in jaw_pts])
+        jaw_width_norm = float(np.linalg.norm(right_gonion - left_gonion))
+        norm_pts = norm_pts / (jaw_width_norm + 1e-9)
+
+        if np.mean(norm_pts[4:9, 1]) < 0:
+            norm_pts[:, 1] = -norm_pts[:, 1]
+
+        norm_pts_closed = np.vstack((norm_pts, norm_pts[0]))
+        norm_height = float(np.max(norm_pts_closed[:, 1]))
+        is_u_shaped = norm_height < 0.65
+
+        if is_u_shaped:
+            shape_front_val   = "U-Shaped"
+            shape_front_title = "U-SHAPED MANDIBULAR OUTLINE"
+            shape_front_exp   = (
+                "From the front your jaw curves in a gentle U from angle to angle "
+                "and the chin looks rounded rather than square or tapered which gives "
+                "you a softer outline while still reading clearly as a defined jaw."
+            )
+        else:
+            shape_front_val   = "V-Shaped"
+            shape_front_title = "V-SHAPED MANDIBULAR OUTLINE"
+            shape_front_exp   = (
+                "From the front your jaw tapers steeply from angle to angle, creating "
+                "a sharp V-shape with a highly defined, angular lower third and a "
+                "prominent chin point."
+            )
+
+        img_sf = img_rgb.copy()
+        jaw_px = np.int32(jaw_pts)
+        cv2.polylines(img_sf, [jaw_px], False, LC, 2, cv2.LINE_AA)
+        for p in [jaw_px[0], jaw_px[-1]]:
+            cv2.circle(img_sf, tuple(p), 4, LC, -1, cv2.LINE_AA)
+        cv2.circle(img_sf, tuple(np.int32(menton)), 5, LC, -1, cv2.LINE_AA)
+        shape_front_image_b64 = rgb_to_b64(crop_face(img_sf))
+
+        jaw_norm_pts_list = [[round(float(p[0]), 4), round(float(p[1]), 4)] for p in norm_pts_closed]
+        t_arc = np.linspace(0, np.pi, 50)
+        avg_arc = np.vstack((np.column_stack((0.5 * np.cos(t_arc), 0.6 * np.sin(t_arc))),
+                              [[0.5, 0.0]]))
+        jaw_avg_pts_list = [[round(float(p[0]), 4), round(float(p[1]), 4)] for p in avg_arc]
+
+        # ── 2. JAW-TO-CHEEK RATIO ──
+        pt_cheek_l = get_pt(234)
+        pt_cheek_r = get_pt(454)
+        pt_jaw_l   = get_pt(132)
+        pt_jaw_r   = get_pt(361)
+
+        cheek_width_px  = float(np.linalg.norm(pt_cheek_l - pt_cheek_r))
+        jaw_width_px2   = float(np.linalg.norm(pt_jaw_l - pt_jaw_r))
+        jaw_cheek_ratio = jaw_width_px2 / (cheek_width_px + 1e-9)
+        ideal_ratio = 0.90
+        max_scale   = 1.2
+
+        jaw_bar_you_pct      = round((jaw_cheek_ratio / max_scale) * 100, 1)
+        jaw_bar_cheek_pct    = round((1.0 / max_scale) * 100, 1)
+        jaw_bar_ideal_pct    = round((ideal_ratio / max_scale) * 100, 1)
+        jaw_bar_ideal_ch_pct = round((1.0 / max_scale) * 100, 1)
+
+        if jaw_cheek_ratio < 0.95:
+            jaw_proportion_label = "Jaw < Cheek"
+            jaw_cheek_exp = (
+                "Your jaw-to-cheek ratio keeps cheekbones slightly broader than the jaw "
+                "so the midface leads laterally while the lower third provides a stable "
+                "but not overpowering base."
+            )
+        else:
+            jaw_proportion_label = "Jaw >= Cheek"
+            jaw_cheek_exp = (
+                "Your jaw is almost as wide as your cheekbones, giving your face a "
+                "highly angular and boxy appearance typical of a strong masculine lower third."
+            )
+
+        def dotted_hline(img, x1, x2, y, color, th=2, dot_gap=8):
+            for x in range(min(x1, x2), max(x1, x2), dot_gap * 2):
+                xe = min(x + dot_gap, max(x1, x2))
+                cv2.line(img, (x, y), (xe, y), color, th, cv2.LINE_AA)
+
+        img_ratio = img_rgb.copy()
+        y_cheek   = int((pt_cheek_l[1] + pt_cheek_r[1]) / 2)
+        y_jaw     = int((pt_jaw_l[1]   + pt_jaw_r[1])   / 2)
+        cx1 = int(pt_cheek_l[0]); cx2 = int(pt_cheek_r[0])
+        jx1 = int(pt_jaw_l[0]);   jx2 = int(pt_jaw_r[0])
+        dotted_hline(img_ratio, cx1, cx2, y_cheek, LC)
+        dotted_hline(img_ratio, jx1, jx2, y_jaw, LC)
+        for p in [(cx1, y_cheek), (cx2, y_cheek), (jx1, y_jaw), (jx2, y_jaw)]:
+            cv2.circle(img_ratio, p, 4, LC, -1, cv2.LINE_AA)
+        jaw_ratio_image_b64 = rgb_to_b64(crop_face(img_ratio))
+
+        # ── 3. JAW IMPRESSION (DIMORPHISM) GRID ──
+        grid_x_float = (jaw_cheek_ratio - 0.73) / (0.93 - 0.73) * 8
+        grid_x = int(np.clip(round(grid_x_float), 0, 8))
+
+        lt_height   = float(np.linalg.norm(get_pt(164) - get_pt(152)))
+        face_h_full = float(np.linalg.norm(get_pt(10)  - get_pt(152)))
+        lt_ratio    = lt_height / (face_h_full + 1e-9)
+        grid_y_float = (lt_ratio - 0.28) / (0.37 - 0.28) * 8
+        grid_y = int(np.clip(round(grid_y_float), 0, 8))
+
+        masc_word   = "masculine" if grid_x >= 4 else "feminine"
+        strong_word = "strong"    if grid_y >= 4 else "delicate"
+        jaw_imp_exp = (
+            f"Your jaw reads as {masc_word} and {strong_word} with a "
+            f"{'clear but not extreme' if 3 <= grid_x <= 5 else 'pronounced'} lower border "
+            f"and a {'U' if is_u_shaped else 'V'}-shaped outline."
+        )
+
+        overlay_idxs   = [234, 132, 149, 378, 361, 454]
+        overlay_pts_np = np.int32([get_pt(i) for i in overlay_idxs])
+        img_imp = img_rgb.copy()
+        for i in range(len(overlay_pts_np)):
+            _draw_dashed_line_cv(img_imp, tuple(overlay_pts_np[i]),
+                                 tuple(overlay_pts_np[(i + 1) % len(overlay_pts_np)]), LC, 2)
+        jaw_impression_image_b64 = rgb_to_b64(crop_face(img_imp))
+
+        # ── 4. OTHER VISUAL FEATURES ──
+        # Feature 1: Jowls
+        img_jowls = img_rgb.copy()
+        for jidxs in [[132, 136, 150, 149, 176, 148, 152], [361, 365, 379, 378, 400, 377, 152]]:
+            ptsj = [tuple(np.int32(get_pt(i))) for i in jidxs]
+            for i in range(len(ptsj) - 1):
+                _draw_dashed_line_cv(img_jowls, ptsj[i], ptsj[i + 1], LC, 2)
+        jowls_image_b64 = rgb_to_b64(crop_face(img_jowls))
+
+        # Feature 2: Ramus
+        img_ramus = img_rgb.copy()
+        for ti, gi, side in [(93, 132, -1), (323, 361, 1)]:
+            pt_top = get_pt(ti)
+            pt_bot = get_pt(gi)
+            x_ln = int(pt_top[0]) + side * 18
+            cv2.line(img_ramus, (x_ln, int(pt_top[1])), (x_ln, int(pt_bot[1])), LC, 2, cv2.LINE_AA)
+            cv2.line(img_ramus, (x_ln - 5, int(pt_top[1])), (x_ln + 5, int(pt_top[1])), LC, 2, cv2.LINE_AA)
+            cv2.line(img_ramus, (x_ln - 5, int(pt_bot[1])), (x_ln + 5, int(pt_bot[1])), LC, 2, cv2.LINE_AA)
+        ramus_image_b64 = rgb_to_b64(crop_face(img_ramus))
+
+        # Feature 3: Jaw Muscle
+        img_muscle = img_rgb.copy()
+        mr = int(w * 0.04)
+        for g_idx in [132, 361]:
+            gp = np.int32(get_pt(g_idx))
+            for a_deg in range(0, 360, 15):
+                a1r = np.radians(a_deg)
+                a2r = np.radians(a_deg + 8)
+                pm1 = (int(gp[0] + mr * np.cos(a1r)), int(gp[1] + mr * np.sin(a1r)))
+                pm2 = (int(gp[0] + mr * np.cos(a2r)), int(gp[1] + mr * np.sin(a2r)))
+                cv2.line(img_muscle, pm1, pm2, LC, 2, cv2.LINE_AA)
+        muscle_image_b64 = rgb_to_b64(crop_face(img_muscle))
+
+        # Feature 4: Lower Third
+        img_lt  = img_rgb.copy()
+        pt_sub  = np.int32(get_pt(2))
+        pt_ment = np.int32(get_pt(152))
+        lt_len  = int(w * 0.12)
+        for ph, yv in [(pt_sub, pt_sub[1]), (pt_ment, pt_ment[1])]:
+            dotted_hline(img_lt, ph[0] - lt_len, ph[0], yv, LC, 1, 6)
+            dotted_hline(img_lt, ph[0], ph[0] + lt_len, yv, LC, 1, 6)
+        x_lt_l = pt_ment[0] - int(lt_len * 0.8)
+        x_lt_r = pt_ment[0] + int(lt_len * 0.8)
+        cv2.line(img_lt, (x_lt_l, pt_sub[1]), (x_lt_l, pt_ment[1]), LC, 2, cv2.LINE_AA)
+        cv2.line(img_lt, (x_lt_r, pt_sub[1]), (x_lt_r, pt_ment[1]), LC, 2, cv2.LINE_AA)
+        lower_third_image_b64 = rgb_to_b64(crop_face(img_lt))
+
+        jaw_visual_features = [
+            {
+                "key": "jowls", "title": "No Jowls",
+                "explanation": (
+                    "The tight transition from your jawline to your neck reveals excellent "
+                    "skin elasticity and minimal submental fat, commonly known as having 'no jowls'."
+                ),
+                "image": jowls_image_b64,
+            },
+            {
+                "key": "ramus", "title": "Average Ramus Length",
+                "explanation": (
+                    "Your ramus length sits in the average range so the jaw angle sits at a "
+                    "typical level relative to the ear, keeping the lower third height looking "
+                    "proportional to the midface."
+                ),
+                "image": ramus_image_b64,
+            },
+            {
+                "key": "muscle", "title": "Subtle Jaw Muscle",
+                "explanation": (
+                    "Your masseter area shows subtle muscle fullness without bulging which "
+                    "gives the jaw enough sidewall support without creating a very square or "
+                    "blocky lower face."
+                ),
+                "image": muscle_image_b64,
+            },
+            {
+                "key": "lower_third", "title": "Normal Lower Third Size",
+                "explanation": (
+                    "Your lower third height and width fall in a normal range so the distance "
+                    "from nose to chin and the jaw width both match what is typical for your age and sex."
+                ),
+                "image": lower_third_image_b64,
+            },
+        ]
+
+        return {
+            "jaw_shape_front":             shape_front_val,
+            "jaw_shape_front_title":       shape_front_title,
+            "jaw_shape_front_explanation": shape_front_exp,
+            "jaw_shape_front_image":       shape_front_image_b64,
+            "jaw_normalized_pts":          jaw_norm_pts_list,
+            "jaw_avg_pts":                 jaw_avg_pts_list,
+            "jaw_to_cheek_ratio":          round(jaw_cheek_ratio, 3),
+            "jaw_to_cheek_label":          jaw_proportion_label,
+            "jaw_to_cheek_explanation":    jaw_cheek_exp,
+            "jaw_to_cheek_image":          jaw_ratio_image_b64,
+            "jaw_bar_you_pct":             jaw_bar_you_pct,
+            "jaw_bar_cheek_pct":           jaw_bar_cheek_pct,
+            "jaw_bar_ideal_jaw_pct":       jaw_bar_ideal_pct,
+            "jaw_bar_ideal_cheek_pct":     jaw_bar_ideal_ch_pct,
+            "jaw_proportion_label":        jaw_proportion_label,
+            "jaw_impression_grid_x":       grid_x,
+            "jaw_impression_grid_y":       grid_y,
+            "jaw_impression_explanation":  jaw_imp_exp,
+            "jaw_impression_image":        jaw_impression_image_b64,
+            "jaw_visual_features":         jaw_visual_features,
+        }
+
+    except Exception as e:
+        print(f"[WARN] Advanced jaw analysis failed: {e}")
+        import traceback; traceback.print_exc()
+        return empty_result
+
 
 
 # ─────────────────────────────────────────────
@@ -4021,6 +4328,10 @@ def analyze_all():
         }
 
         jm = metrics.get("jaw", {})
+
+        # Advanced jaw analysis: shape front, width ratio, impression, visual features
+        jaw_advanced = analyze_jaw_advanced(img_rgb, pts)
+
         jaw_data = {
             "jaw_width_mm":                    _fmt(jm.get("jaw_width_mm")),
             "frontal_jaw_rise_mm":             _fmt(jm.get("frontal_jaw_rise_mm")),
@@ -4035,6 +4346,8 @@ def analyze_all():
             # images (skin label=1 used as full face proxy for jaw)
             "jaw_image_white": part_imgs["skin"]["white_bg"],
             "jaw_image":       part_imgs["skin"]["cropped"],
+            # advanced analysis (shape front, width ratio, impression, visual features)
+            **jaw_advanced,
         }
 
         chm = metrics.get("chin", {})

@@ -2575,13 +2575,134 @@ def skin():
     return render_template("skin.html")
 
 
+def _ear_crop_around(img: Image.Image, pts, pad_x_frac=0.55, pad_y_frac=0.20):
+    """
+    Crop a PIL image tightly around the ear polygon points, with padding.
+    Returns (cropped_img, shifted_pts) where shifted_pts are pts translated
+    into the cropped image's coordinate space.
+    """
+    W, H = img.size
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    min_x, max_x = min(xs), max(xs)
+    min_y, max_y = min(ys), max(ys)
+    ear_w, ear_h = max_x - min_x, max_y - min_y
+    pad_x, pad_y = ear_w * pad_x_frac, ear_h * pad_y_frac
+    crop_box = (
+        max(0, int(min_x - pad_x)),
+        max(0, int(min_y - pad_y)),
+        min(W, int(max_x + pad_x * 0.6)),
+        min(H, int(max_y + pad_y)),
+    )
+    cropped = img.crop(crop_box)
+    ox, oy = crop_box[0], crop_box[1]
+    pts_c = [(x - ox, y - oy) for x, y in pts]
+    return cropped, pts_c
+
+
+def _ear_dotted_circle(draw, center, radius, color, dot_count=28, dot_radius=1.6):
+    """Draws a circle made of small dots (clinical marker style)."""
+    cx, cy = center
+    for i in range(dot_count):
+        theta = 2 * math.pi * i / dot_count
+        dx, dy = cx + radius * math.cos(theta), cy + radius * math.sin(theta)
+        draw.ellipse(
+            [dx - dot_radius, dy - dot_radius, dx + dot_radius, dy + dot_radius],
+            fill=color,
+        )
+
+
+def draw_gentle_ear_contour(img: Image.Image, pts, color=(255, 255, 255)):
+    """Marks the lower lobe/contour area with a dotted circle."""
+    cropped, pts_c = _ear_crop_around(img, pts)
+    xs = [p[0] for p in pts_c]; ys = [p[1] for p in pts_c]
+    min_x, max_x = min(xs), max(xs); min_y, max_y = min(ys), max(ys)
+    ear_w, ear_h = max_x - min_x, max_y - min_y
+    center = (min_x + ear_w * 0.30, min_y + ear_h * 0.78)
+    radius = ear_w * 0.16
+    draw = ImageDraw.Draw(cropped)
+    _ear_dotted_circle(draw, center, radius, color)
+    return cropped
+
+
+def draw_backwards_ear_tilt(img: Image.Image, pts, color=(255, 255, 255), width=2):
+    """Draws the ear's central axis vs. a true-vertical reference line and returns the tilt angle."""
+    cropped, pts_c = _ear_crop_around(img, pts)
+    top_pt = min(pts_c, key=lambda p: p[1])
+    bottom_pt = max(pts_c, key=lambda p: p[1])
+    draw = ImageDraw.Draw(cropped)
+    draw.line([bottom_pt, top_pt], fill=color, width=width)
+    vertical_top = (bottom_pt[0], top_pt[1])
+    draw.line([bottom_pt, vertical_top], fill=color, width=width)
+    dx, dy = bottom_pt[0] - top_pt[0], bottom_pt[1] - top_pt[1]
+    tilt_deg = math.degrees(math.atan2(dx, dy))
+    return cropped, tilt_deg
+
+
+def draw_normal_ear_flare(img: Image.Image, pts, color=(255, 255, 255), width=3):
+    """Traces the curved top edge/rim of the ear."""
+    cropped, pts_c = _ear_crop_around(img, pts)
+    ys = [p[1] for p in pts_c]
+    min_y, max_y = min(ys), max(ys)
+    ear_h = max_y - min_y
+    top_band = sorted(
+        [p for p in pts_c if p[1] <= min_y + ear_h * 0.20],
+        key=lambda p: p[0]
+    )
+    draw = ImageDraw.Draw(cropped)
+    if len(top_band) >= 2:
+        draw.line(top_band, fill=color, width=width, joint="curve")
+    return cropped
+
+
+def draw_darwins_tubercle_check(img: Image.Image, pts, color=(255, 255, 255)):
+    """Marks the upper helix rim where a Darwin's tubercle would appear if present."""
+    cropped, pts_c = _ear_crop_around(img, pts)
+    xs = [p[0] for p in pts_c]; ys = [p[1] for p in pts_c]
+    min_x, max_x = min(xs), max(xs); min_y, max_y = min(ys), max(ys)
+    ear_w, ear_h = max_x - min_x, max_y - min_y
+    center = (min_x + ear_w * 0.12, min_y + ear_h * 0.10)
+    radius = ear_w * 0.14
+    draw = ImageDraw.Draw(cropped)
+    _ear_dotted_circle(draw, center, radius, color)
+    return cropped
+
+
+def classify_ear_tilt(tilt_deg):
+    if tilt_deg is None:
+        return 'N/A'
+    if tilt_deg > 8:
+        return 'Backward Ear Tilt'
+    if tilt_deg < -8:
+        return 'Forward Ear Tilt'
+    return 'Neutral Ear Tilt'
+
+
+def _ear_tilt_explanation(tilt_deg):
+    if tilt_deg is None:
+        return "Tilt could not be determined from this image."
+    label = classify_ear_tilt(tilt_deg)
+    mag = abs(tilt_deg)
+    if label == 'Backward Ear Tilt':
+        return (f"Your upper ear leans backward by about {mag:.1f}\u00b0 from true vertical, so from the "
+                f"front less of the ear surface faces straight toward the viewer, which softens how large "
+                f"the ears appear.")
+    if label == 'Forward Ear Tilt':
+        return (f"Your upper ear leans forward by about {mag:.1f}\u00b0 from true vertical, angling "
+                f"slightly toward the face rather than lying flat against the head.")
+    return (f"Your ear's central axis sits close to true vertical (within {mag:.1f}\u00b0 of upright), "
+            f"giving it a neutral, upright orientation relative to the head.")
+
+
 def extract_ear_roboflow(pil_img: Image.Image, mm_per_px: float = None):
     """
     Uses Roboflow API to segment the ear from a side-face image.
     Returns:
       - cropped_b64: cropped ear on white background
       - overlay_b64: full image with ear outline + caliper measurement lines
-      - metrics: dict with ear_height_mm, ear_width_mm, ear_height_px, ear_width_px
+      - metrics: dict with ear_height_mm, ear_width_mm, ear_height_px, ear_width_px,
+                 ear_diagonal_length_px/mm
+      - features: dict with the 4 "other visual features" overlay images + tilt data
     """
     import os
     try:
@@ -2671,17 +2792,64 @@ def extract_ear_roboflow(pil_img: Image.Image, mm_per_px: float = None):
 
         ear_h_px = int(max_y - min_y)
         ear_w_px = int(hx_right - hx_left)
+        diag_len_px = math.hypot(bottom_pt[0] - top_pt[0], bottom_pt[1] - top_pt[1])
         metrics = {
             'ear_height_px': ear_h_px,
             'ear_width_px': ear_w_px,
             'ear_height_mm': round(ear_h_px * mm_per_px, 2) if mm_per_px else None,
             'ear_width_mm': round(ear_w_px * mm_per_px, 2) if mm_per_px else None,
+            'ear_diagonal_length_px': round(diag_len_px, 2),
+            'ear_diagonal_length_mm': round(diag_len_px * mm_per_px, 2) if mm_per_px else None,
         }
-        return cropped_b64, overlay_b64, metrics
+
+        # --- "Other Visual Features" overlays (contour / tilt / flare / tubercle) ---
+        features = {}
+        try:
+            base_for_features = pil_img.convert('RGB')
+            contour_img = draw_gentle_ear_contour(base_for_features, pts_plain)
+            tilt_img, tilt_deg = draw_backwards_ear_tilt(base_for_features, pts_plain)
+            flare_img = draw_normal_ear_flare(base_for_features, pts_plain)
+            tubercle_img = draw_darwins_tubercle_check(base_for_features, pts_plain)
+
+            tilt_class = classify_ear_tilt(tilt_deg)
+            features = {
+                'contour': {
+                    'title': 'Gentle Ear Contour',
+                    'image': rgb_to_b64(np.array(contour_img)),
+                    'explanation': ("The lower contour of your ear curves smoothly from the lobe into the "
+                                    "antihelix, without sharp angles or notches, giving the base of the ear "
+                                    "a soft, rounded outline."),
+                },
+                'tilt': {
+                    'title': tilt_class,
+                    'image': rgb_to_b64(np.array(tilt_img)),
+                    'explanation': _ear_tilt_explanation(tilt_deg),
+                    'tilt_deg': round(tilt_deg, 2),
+                },
+                'flare': {
+                    'title': 'Normal Ear Flare',
+                    'image': rgb_to_b64(np.array(flare_img)),
+                    'explanation': ("The upper rim of your ear follows the natural curve of the skull "
+                                     "rather than flaring sharply outward, so the top of the ear stays "
+                                     "relatively close to the head."),
+                },
+                'tubercle': {
+                    'title': "No Darwin's Tubercle",
+                    'image': rgb_to_b64(np.array(tubercle_img)),
+                    'explanation': ("No pronounced point or bump is visible along the upper helix rim in "
+                                     "this image \u2014 the rim follows a smooth, continuous curve typical "
+                                     "of ears without a Darwin's tubercle."),
+                },
+            }
+        except Exception as fe:
+            print(f'[WARN] Ear feature overlay generation failed: {fe}')
+            features = {}
+
+        return cropped_b64, overlay_b64, metrics, features
 
     except Exception as e:
         print(f'[WARN] Roboflow ear extraction failed: {e}')
-        return None, None, {}
+        return None, None, {}, {}
 
 
 # ─────────────────────────────────────────────
@@ -3408,7 +3576,7 @@ def analyze_ear():
         mm_per_px_str = request.form.get('mm_per_px', None)
         mm_per_px = float(mm_per_px_str) if mm_per_px_str else None
 
-        cropped_b64, overlay_b64, metrics = extract_ear_roboflow(pil_img, mm_per_px)
+        cropped_b64, overlay_b64, metrics, features = extract_ear_roboflow(pil_img, mm_per_px)
 
         if cropped_b64 is None:
             return jsonify({"error": "No ear detected in the image. Please upload a clear side-profile photo."}), 400
@@ -3417,6 +3585,8 @@ def analyze_ear():
         ear_w_px = metrics.get('ear_width_px', 0)
         ear_h_mm = metrics.get('ear_height_mm')
         ear_w_mm = metrics.get('ear_width_mm')
+        ear_diag_px = metrics.get('ear_diagonal_length_px')
+        ear_diag_mm = metrics.get('ear_diagonal_length_mm')
 
         def classify_ear_size(h_mm):
             if h_mm is None: return 'N/A'
@@ -3445,12 +3615,16 @@ def analyze_ear():
             'ear_width_mm':  _fmt(ear_w_mm) if ear_w_mm else 'N/A',
             'ear_height_px': ear_h_px,
             'ear_width_px':  ear_w_px,
+            'ear_diagonal_length_px': _fmt(ear_diag_px) if ear_diag_px else 'N/A',
+            'ear_diagonal_length_mm': _fmt(ear_diag_mm) if ear_diag_mm else 'N/A',
             'ear_size':        classify_ear_size(ear_h_mm),
             'ear_prominence':  classify_ear_prominence(ear_w_mm),
             'ear_shape':       classify_ear_shape(ear_h_px, ear_w_px),
             'ear_position':    classify_ear_position(),
             'ear_cropped':     cropped_b64,
             'ear_overlay':     overlay_b64,
+            # "Other visual features" — Gentle Ear Contour / Ear Tilt / Ear Flare / Darwin's Tubercle
+            'features':        features,
         }
         return jsonify({'ear': ear_data})
 

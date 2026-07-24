@@ -69,6 +69,24 @@
         .not-uploaded-banner h3 { margin:0 0 8px 0; font-size:18px; color:#92400e; }
         .not-uploaded-banner p { margin:0; color:#a16207; font-size:14px; }
         .not-uploaded-banner a { color:#1e293b; font-weight:600; text-decoration:underline; }
+
+        /* Other Visual Features — interactive tab selector */
+        .features-section { margin-top:24px; }
+        .features-header h2 { font-size:22px; font-weight:600; margin:0 0 8px 0; letter-spacing:-0.3px; }
+        .features-header h2 span { color:var(--text-highlight); }
+        .features-header p { font-size:14px; color:var(--text-secondary); margin:0 0 20px 0; line-height:1.5; }
+        .features-layout { display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:start; }
+        .feature-tabs { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+        .feature-tab { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:24px 20px; cursor:pointer; box-shadow:0 2px 10px rgba(0,0,0,0.02); transition:all 0.2s; min-height:24px; display:flex; align-items:flex-end; }
+        .feature-tab:hover { border-color:#cbd5e1; }
+        .feature-tab.active { background:#eef2f4; border-color:#1e293b33; }
+        .feature-tab-label { font-size:15px; font-weight:500; color:var(--text-primary); }
+        .feature-explanation { grid-column:1 / -1; background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:24px; box-shadow:0 2px 10px rgba(0,0,0,0.02); }
+        .feature-explanation-label { font-family:monospace; font-size:10px; color:var(--text-highlight); text-transform:uppercase; letter-spacing:1px; margin-bottom:16px; font-weight:600; }
+        .feature-explanation-text { font-size:14px; color:var(--text-primary); line-height:1.6; margin:0; min-height:60px; }
+        .feature-image-panel { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:20px; box-shadow:0 2px 10px rgba(0,0,0,0.02); display:flex; align-items:center; justify-content:center; min-height:300px; }
+        .feature-image-panel img { max-width:100%; max-height:420px; width:auto; height:auto; object-fit:contain; border-radius:8px; }
+        .feature-image-panel .no-image { font-size:13px; color:var(--text-secondary); }
     </style>
 </head>
 <body>
@@ -181,6 +199,28 @@
                 </div>
             </div>
         </div>
+        <div id="featuresSection" class="features-section" style="display:none;">
+            <div class="features-header">
+                <h2>Other visual <span>features</span> of your ears</h2>
+                <p>Subtle variations in ear structure, protrusions, and symmetry contribute to the overall character and balance of your ears.</p>
+            </div>
+            <div class="features-layout">
+                <div class="feature-tabs" id="featureTabs">
+                    <div class="feature-tab" data-key="contour" onclick="selectFeature('contour')"><span class="feature-tab-label" id="tabLabel-contour">Ear Contour</span></div>
+                    <div class="feature-tab" data-key="tilt" onclick="selectFeature('tilt')"><span class="feature-tab-label" id="tabLabel-tilt">Ear Tilt</span></div>
+                    <div class="feature-tab" data-key="flare" onclick="selectFeature('flare')"><span class="feature-tab-label" id="tabLabel-flare">Ear Flare</span></div>
+                    <div class="feature-tab" data-key="tubercle" onclick="selectFeature('tubercle')"><span class="feature-tab-label" id="tabLabel-tubercle">Darwin's Tubercle</span></div>
+                    <div class="feature-explanation">
+                        <div class="feature-explanation-label">Explanation</div>
+                        <p class="feature-explanation-text" id="featureExplanationText">--</p>
+                    </div>
+                </div>
+                <div class="feature-image-panel">
+                    <img id="featureImage" src="" alt="Ear feature" style="display:none;">
+                    <span class="no-image" id="featureImageEmpty">No image available</span>
+                </div>
+            </div>
+        </div>
         <div style="margin-top:24px;background:var(--card-bg);border:1px solid var(--border-color);border-radius:12px;padding:24px;box-shadow:0 2px 10px rgba(0,0,0,0.02);">
             <div class="grid-header" style="margin-bottom:16px;">All Ear Metrics</div>
             <div id="earMetricsDetail" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 32px;"></div>
@@ -195,6 +235,38 @@
     function goToSlide(i){currentSlide=i;updateCarousel();}
     function setVal(id,v){const el=document.getElementById(id);if(el)el.innerText=(v&&v!=='N/A')?v:'N/A';}
     function setMark(id,val,min,max){if(!val||val==='N/A')return;const p=15+((parseFloat(val)-min)/(max-min))*70;document.getElementById(id).style.left=Math.max(5,Math.min(95,p))+'%';}
+
+    let earFeatures={};
+    let activeFeatureKey='contour';
+    function selectFeature(key){
+        activeFeatureKey=key;
+        document.querySelectorAll('.feature-tab').forEach(function(t){t.classList.toggle('active',t.getAttribute('data-key')===key);});
+        const f=earFeatures[key];
+        const img=document.getElementById('featureImage');
+        const empty=document.getElementById('featureImageEmpty');
+        const text=document.getElementById('featureExplanationText');
+        if(f&&f.image){img.src=f.image;img.style.display='block';empty.style.display='none';}
+        else{img.style.display='none';empty.style.display='block';}
+        text.innerText=(f&&f.explanation)?f.explanation:'No explanation available.';
+    }
+    function initFeatures(features){
+        earFeatures=features||{};
+        const keys=['contour','tilt','flare','tubercle'];
+        let anyFeature=false;
+        keys.forEach(function(k){
+            const f=earFeatures[k];
+            if(f){
+                anyFeature=true;
+                const labelEl=document.getElementById('tabLabel-'+k);
+                if(labelEl&&f.title)labelEl.innerText=f.title;
+            }
+        });
+        if(anyFeature){
+            document.getElementById('featuresSection').style.display='block';
+            selectFeature('contour');
+        }
+    }
+
     window.addEventListener('DOMContentLoaded',function(){
         const dataStr=sessionStorage.getItem('faceData_ear');
         const sideUploaded=sessionStorage.getItem('sideImageUploaded')==='true';
@@ -217,17 +289,23 @@
         setMark('markerWidth',data.ear_width_mm,18,30);
         if(data.ear_cropped)document.getElementById('earCroppedImg').src=data.ear_cropped;
         if(data.ear_overlay)document.getElementById('earOverlayImg').src=data.ear_overlay;
+        initFeatures(data.features);
         const det=document.getElementById('earMetricsDetail');
         const rows=[
             ['Ear Height (px)',data.ear_height_px||'N/A'],
             ['Ear Width (px)',data.ear_width_px||'N/A'],
             ['Ear Height (mm)',data.ear_height_mm?data.ear_height_mm+' mm':'N/A'],
             ['Ear Width (mm)',data.ear_width_mm?data.ear_width_mm+' mm':'N/A'],
+            ['Ear Diagonal Length (px)',data.ear_diagonal_length_px||'N/A'],
+            ['Ear Diagonal Length (mm)',data.ear_diagonal_length_mm&&data.ear_diagonal_length_mm!=='N/A'?data.ear_diagonal_length_mm+' mm':'N/A'],
             ['Ear Size',data.ear_size||'N/A'],
             ['Ear Prominence',data.ear_prominence||'N/A'],
             ['Ear Shape',data.ear_shape||'N/A'],
             ['Ear Position',data.ear_position||'N/A'],
         ];
+        if(data.features&&data.features.tilt&&typeof data.features.tilt.tilt_deg==='number'){
+            rows.push(['Ear Tilt Angle',data.features.tilt.tilt_deg+'\u00b0']);
+        }
         det.innerHTML=rows.map(function(r){return '<div class="metric-row"><span class="metric-label">'+r[0]+'</span><span class="metric-val">'+r[1]+'</span></div>';}).join('');
     });
 </script>

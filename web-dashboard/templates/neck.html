@@ -276,23 +276,12 @@
 
     <!-- ══════════════════ ADVANCED NECK ANALYSIS ══════════════════ -->
     <div class="adv-section">
-        <div class="adv-title">Advanced <span>neck</span> analysis</div>
-        <div class="adv-sub">A full landmark-based breakdown using the Front Face and 45-Degree images you already uploaded on the Dashboard: primary dashboard, neck proportions, neck definition, and — since a 45° image is available — other visual features and the submental region.</div>
-
-        <div class="upload-card">
-            <div class="upload-field" style="flex:1;">
-                <label>Image source</label>
-                <div class="upload-hint" id="neckImgSourceInfo">Checking Dashboard uploads...</div>
-            </div>
-            <button class="adv-btn" id="neckAdvBtn" onclick="runNeckAdvanced()">Run Advanced Analysis</button>
-            <span class="adv-status" id="neckAdvStatus"></span>
-        </div>
 
         <!-- 1. Primary Dashboard -->
         <div class="adv-block" id="blockDashboard">
             <div class="adv-block-title">An overview of your <span style="color:var(--text-highlight);">neck</span></div>
             <div class="adv-block-desc">The neck is often overlooked in aesthetics, yet without harmonious neck features, the face can appear less attractive.</div>
-            <div class="dp-imgwrap" style="margin-bottom:24px;min-height:320px;"><img id="advMainImg" src="" alt="Neck overview"></div>
+
             <div class="toggle-row" id="dashToggleRow">
                 <div class="toggle-btn active" data-dp="width" onclick="renderDashDetail('width')">Neck Width</div>
                 <div class="toggle-btn" data-dp="ratio" onclick="renderDashDetail('ratio')">Neck/Jaw Ratio</div>
@@ -459,30 +448,18 @@
     }
 
     function initNeckAdvancedSource(){
-        const infoEl = document.getElementById('neckImgSourceInfo');
         const frontDataUrl = sessionStorage.getItem('frontImageDataUrl');
-        const sideDataUrl  = sessionStorage.getItem('jawImageDataUrl'); // 45-degree image from Dashboard
         if(!frontDataUrl){
-            infoEl.textContent = 'No Front Face image found. Please upload it on the Dashboard first.';
-            document.getElementById('neckAdvBtn').disabled = true;
             return false;
         }
-        infoEl.textContent = sideDataUrl
-            ? 'Using your Front Face + 45-Degree images from the Dashboard.'
-            : 'Using your Front Face image from the Dashboard (no 45-Degree image uploaded — some sections will be unavailable).';
         return true;
     }
 
     async function runNeckAdvanced(){
-        const statusEl = document.getElementById('neckAdvStatus');
-        const btn      = document.getElementById('neckAdvBtn');
-
         const frontDataUrl = sessionStorage.getItem('frontImageDataUrl');
         const sideDataUrl  = sessionStorage.getItem('jawImageDataUrl'); // 45-degree image from Dashboard
 
         if(!frontDataUrl){
-            statusEl.textContent = 'No Front Face image found. Please upload it on the Dashboard first.';
-            statusEl.classList.add('err');
             return;
         }
 
@@ -490,27 +467,16 @@
         fd.append('neck_front', dataURLtoFile(frontDataUrl, 'front.jpg'));
         if(sideDataUrl) fd.append('neck_side', dataURLtoFile(sideDataUrl, 'side45.jpg'));
 
-        btn.disabled = true;
-        statusEl.classList.remove('err');
-        statusEl.textContent = 'Analyzing...';
-
         try {
             const res = await fetch('/analyze_neck_advanced', { method:'POST', body: fd });
             const json = await res.json();
             if(!res.ok || json.error){
-                statusEl.textContent = json.error || 'Analysis failed.';
-                statusEl.classList.add('err');
-                btn.disabled = false;
                 return;
             }
             neckAdvData = json.neck_advanced;
-            statusEl.textContent = 'Done.';
-            btn.disabled = false;
             renderNeckAdvanced();
         } catch(e){
-            statusEl.textContent = 'Network error: ' + e.message;
-            statusEl.classList.add('err');
-            btn.disabled = false;
+            console.error('Network error:', e);
         }
     }
 
@@ -519,7 +485,6 @@
 
         // 1. Primary dashboard
         document.getElementById('blockDashboard').style.display = 'block';
-        document.getElementById('advMainImg').src = neckAdvData.main_image_b64 || '';
         renderDashDetail('width');
 
         // 2. Other visual features (needs profile image)

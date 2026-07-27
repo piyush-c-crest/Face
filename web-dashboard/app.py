@@ -3258,7 +3258,7 @@ def classify_teeth_color(mean_l=None):
     return "Dark / Stained"
 
 
-def analyze_smile_image(img_rgb):
+def analyze_smile_image(img_rgb, labels=None):
     """
     Analyze a smiling face image to extract teeth exposure, color, proportions,
     and generate ALL notebook visualizations.
@@ -3294,6 +3294,34 @@ def analyze_smile_image(img_rgb):
                 bgr = arr
             _, buffer = cv2.imencode('.jpg', bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
             return "data:image/jpeg;base64," + base64.b64encode(buffer).decode('utf-8')
+
+        # ── "Other Visual Features" overlay helpers (dimples / social smile /
+        #     smile span / crowding) — ported from smile_analysis_clean notebook §8 ──
+        FEATURE_COLOR = (230, 255, 200)
+
+        def draw_dotted_circle(canvas, center, radius, color=FEATURE_COLOR, thickness=3,
+                                num_dashes=14, dash_ratio=0.55):
+            step = 360.0 / num_dashes
+            for k in range(num_dashes):
+                start_angle = k * step
+                end_angle = start_angle + step * dash_ratio
+                cv2.ellipse(canvas, center, (radius, radius), 0, start_angle, end_angle, color, thickness)
+
+        def draw_caliper_line(canvas, cx1, cx2, cy, color=FEATURE_COLOR, thickness=2, tick_h=12):
+            cv2.line(canvas, (cx1, cy), (cx2, cy), color, thickness)
+            cv2.line(canvas, (cx1, cy), (cx1, cy + tick_h), color, thickness)
+            cv2.line(canvas, (cx2, cy), (cx2, cy + tick_h), color, thickness)
+
+        def draw_bracket(canvas, x, y_top, y_bot, direction, color=FEATURE_COLOR, thickness=3, tick_len=4):
+            cv2.line(canvas, (x, y_top), (x, y_bot), color, thickness)
+            cv2.line(canvas, (x, y_top), (x + direction * tick_len, y_top), color, thickness)
+            cv2.line(canvas, (x, y_bot), (x + direction * tick_len, y_bot), color, thickness)
+
+        def dimple_point(corner_pt, mouth_center_x, mouth_w, outward_frac=0.12, upward_frac=0.30):
+            direction = 1 if corner_pt[0] > mouth_center_x else -1
+            px = corner_pt[0] + direction * outward_frac * mouth_w
+            py = corner_pt[1] - upward_frac * mouth_w
+            return (int(round(px)), int(round(py)))
 
         mp_face = mp.solutions.face_mesh
         with mp_face.FaceMesh(static_image_mode=True, max_num_faces=1,
@@ -3480,6 +3508,63 @@ def analyze_smile_image(img_rgb):
         except Exception as e:
             print("KMeans error:", e)
 
+        # ── 5. Other Visual Features: Cheek Dimples / Social Smile /
+        #        Average Smile Span / Mild Crowding or Spacing ──
+        dimples_b64 = None
+        social_smile_b64 = None
+        smile_span_b64 = None
+        smile_span_px = None
+        crowding_b64 = None
+        try:
+            mouth_center_x = (mouth_left_pt[0] + mouth_right_pt[0]) / 2
+
+            # 5.1 No Cheek Dimples — dotted circles offset up/outward from mouth corners
+            left_dimple_pt = dimple_point(mouth_left_pt, mouth_center_x, mouth_width)
+            right_dimple_pt = dimple_point(mouth_right_pt, mouth_center_x, mouth_width)
+            dimple_radius = max(6, int(round(mouth_width * 0.1)))
+            annotated_dimples = img_rgb.copy()
+            draw_dotted_circle(annotated_dimples, left_dimple_pt, dimple_radius)
+            draw_dotted_circle(annotated_dimples, right_dimple_pt, dimple_radius)
+            dimples_b64 = arr_to_b64(annotated_dimples)
+
+            # 5.2 Social Smile — dotted circles right at the mouth corners
+            social_radius = max(6, int(round(mouth_width * 0.1)))
+            annotated_social = img_rgb.copy()
+            draw_dotted_circle(annotated_social, tuple(mouth_left_pt.astype(int)), social_radius)
+            draw_dotted_circle(annotated_social, tuple(mouth_right_pt.astype(int)), social_radius)
+            social_smile_b64 = arr_to_b64(annotated_social)
+
+            # 5.3 Average Smile Span — caliper line corner to corner
+            span_margin_x = 4
+            span_x1 = int(min(mouth_left_pt[0], mouth_right_pt[0])) - span_margin_x
+            span_x2 = int(max(mouth_left_pt[0], mouth_right_pt[0])) + span_margin_x
+            span_y = int(min(mouth_left_pt[1], mouth_right_pt[1])) - 4
+            annotated_span = img_rgb.copy()
+            draw_caliper_line(annotated_span, span_x1, span_x2, span_y)
+            smile_span_px = span_x2 - span_x1
+            smile_span_b64 = arr_to_b64(annotated_span)
+
+            # 5.4 Mild Crowding or Spacing — exact port of the notebook.
+            #      Use face-parsing label 10 (teeth only) when available — this
+            #      is already in full-image coordinates, so no ROI offset needed.
+            if labels is not None and np.any(labels == 10):
+                teeth_label_mask = (labels == 10)
+                ys_t, xs_t = np.where(teeth_label_mask)
+                crowd_x_center = int(np.median(xs_t))
+                band = 3
+                band_sel = (xs_t >= crowd_x_center - band) & (xs_t <= crowd_x_center + band)
+                band_ys = ys_t[band_sel]
+                if len(band_ys) > 0:
+                    crowd_y_top    = int(band_ys.min())
+                    crowd_y_bottom = int(band_ys.max())
+                    crowd_gap = 3
+                    annotated_crowd = img_rgb.copy()
+                    draw_bracket(annotated_crowd, crowd_x_center - crowd_gap, crowd_y_top, crowd_y_bottom, direction=-1)
+                    draw_bracket(annotated_crowd, crowd_x_center + crowd_gap, crowd_y_top, crowd_y_bottom, direction=1)
+                    crowding_b64 = arr_to_b64(annotated_crowd)
+        except Exception as e:
+            print("Other visual features error:", e)
+
         return {
             "teeth_exposure_ratio":  exposure_ratio,
             "teeth_mean_l":          mean_l,
@@ -3495,6 +3580,13 @@ def analyze_smile_image(img_rgb):
             "width_chart_b64": width_chart_b64,
             "height_crop_b64": height_crop_b64,
             "height_full_b64": height_full_b64,
+
+            # Other Visual Features (section 8 of the notebook)
+            "dimples_b64":       dimples_b64,
+            "social_smile_b64":  social_smile_b64,
+            "smile_span_b64":    smile_span_b64,
+            "smile_span_px":     smile_span_px,
+            "crowding_b64":      crowding_b64,
         }
 
     except Exception:
@@ -5307,7 +5399,15 @@ def analyze_all():
         # Analyze dedicated smile image if uploaded (teeth exposure & color)
         smile_img_analysis = {}
         if smile_img_rgb is not None:
-            smile_img_analysis = analyze_smile_image(smile_img_rgb)
+            # Run segmentation on the smile image so label 10 (teeth) is available
+            # for the crowding bracket — identical to the notebook workflow.
+            try:
+                from PIL import Image as _PIL
+                smile_pil_seg = _PIL.fromarray(smile_img_rgb)
+                smile_labels = run_segmentation(smile_pil_seg)
+            except Exception:
+                smile_labels = None
+            smile_img_analysis = analyze_smile_image(smile_img_rgb, labels=smile_labels)
 
         smile_data = {
             "upper_smile_arc_curvature": _fmt(sm.get("upper_smile_arc_curvature"), 4),
@@ -5331,6 +5431,13 @@ def analyze_all():
             "width_chart_b64": smile_img_analysis.get("width_chart_b64"),
             "height_crop_b64": smile_img_analysis.get("height_crop_b64"),
             "height_full_b64": smile_img_analysis.get("height_full_b64"),
+
+            # Other Visual Features tabs (Cheek Dimples / Social Smile / Smile Span / Crowding)
+            "dimples_b64":      smile_img_analysis.get("dimples_b64"),
+            "social_smile_b64": smile_img_analysis.get("social_smile_b64"),
+            "smile_span_b64":   smile_img_analysis.get("smile_span_b64"),
+            "smile_span_px":    smile_img_analysis.get("smile_span_px"),
+            "crowding_b64":     smile_img_analysis.get("crowding_b64"),
             
             # flag for the frontend
             "has_smile_upload":  smile_img_rgb is not None,

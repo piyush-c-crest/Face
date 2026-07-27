@@ -66,6 +66,21 @@
         .metric-row:hover { background:#f1f5f9; }
         .metric-label { color:var(--text-secondary); font-weight:500; }
         .metric-val { color:var(--text-primary); font-weight:600; }
+
+        /* Other Visual Features — interactive tab section */
+        .feature-intro-p { font-size:13px; color:var(--text-secondary); margin:0 0 20px 0; line-height:1.5; }
+        .feature-intro-p strong { color:var(--text-primary); font-weight:600; }
+        .feature-layout { display:grid; grid-template-columns:1fr 1.15fr; gap:16px; align-items:start; }
+        .feature-tabs { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+        .feature-tab { background:#fafafa; border:1px solid var(--border-color); border-radius:10px; padding:20px 16px; min-height:64px; display:flex; align-items:flex-end; cursor:pointer; transition:all 0.15s ease; }
+        .feature-tab:hover { border-color:#cbd5e1; }
+        .feature-tab.active { background:#eef2f6; border-color:#94a3b8; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+        .feature-tab-title { font-size:14px; font-weight:500; color:var(--text-primary); }
+        .feature-explanation { grid-column:1 / -1; background:#fafafa; border:1px solid var(--border-color); border-radius:10px; padding:20px; min-height:150px; }
+        .feature-explanation-label { font-family:monospace; font-size:10px; color:var(--text-highlight); text-transform:uppercase; letter-spacing:1px; font-weight:600; margin-bottom:20px; }
+        .feature-explanation-text { font-size:14px; color:var(--text-secondary); line-height:1.6; margin:0; }
+        .feature-image-panel { background:#fafafa; border:1px solid var(--border-color); border-radius:10px; display:flex; align-items:center; justify-content:center; padding:16px; min-height:420px; height:100%; box-sizing:border-box; }
+        .feature-image-panel img { max-width:100%; max-height:520px; object-fit:contain; border-radius:8px; }
     </style>
 </head>
 <body>
@@ -278,6 +293,35 @@
         </div>
 
         <div style="margin-top:24px;background:var(--card-bg);border:1px solid var(--border-color);border-radius:12px;padding:24px;box-shadow:0 2px 10px rgba(0,0,0,0.02);">
+            <div class="grid-header" style="margin-bottom:4px;">Other visual <span style="color:var(--text-highlight);">features</span> of your smile</div>
+            <p class="feature-intro-p">The appearance of a smile is influenced not only by the mouth and lips but also by the <strong>activation</strong> of the <strong>cheeks</strong> and <strong>eyes</strong>.</p>
+
+            <div class="feature-layout">
+                <div class="feature-tabs">
+                    <div class="feature-tab active" data-feature="dimples" onclick="selectSmileFeature('dimples')">
+                        <div class="feature-tab-title">No Cheek Dimples</div>
+                    </div>
+                    <div class="feature-tab" data-feature="social" onclick="selectSmileFeature('social')">
+                        <div class="feature-tab-title">Social Smile</div>
+                    </div>
+                    <div class="feature-tab" data-feature="span" onclick="selectSmileFeature('span')">
+                        <div class="feature-tab-title">Average Smile Span</div>
+                    </div>
+                    <div class="feature-tab" data-feature="crowding" onclick="selectSmileFeature('crowding')">
+                        <div class="feature-tab-title">Mild Crowding Or Spacing</div>
+                    </div>
+                    <div class="feature-explanation">
+                        <div class="feature-explanation-label">EXPLANATION</div>
+                        <p id="featureExplanationText" class="feature-explanation-text">--</p>
+                    </div>
+                </div>
+                <div class="feature-image-panel">
+                    <img id="featureImage" src="" alt="Smile feature">
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top:24px;background:var(--card-bg);border:1px solid var(--border-color);border-radius:12px;padding:24px;box-shadow:0 2px 10px rgba(0,0,0,0.02);">
             <div class="grid-header" style="margin-bottom:16px;">All Smile Metrics</div>
             <div id="smileMetricsDetail" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 32px;"></div>
         </div>
@@ -292,6 +336,43 @@
     function goToSlide(i){currentSlide=i;updateCarousel();}
     function setVal(id,v){const el=document.getElementById(id);if(el)el.innerText=(v&&v!=='N/A')?v:'N/A';}
     function setMark(id,val,min,max){const p=15+((val-min)/(max-min))*70;document.getElementById(id).style.left=`${Math.max(5,Math.min(95,p))}%`;}
+
+    // ── Other Visual Features tabs ──
+    const SMILE_FEATURES = {
+        dimples: {
+            imgKey: 'dimples_b64',
+            text: () => "Your cheeks rise gently without forming clear dimples, so the skin surface stays smooth and the smile reads as soft cheek elevation rather than sharply indented."
+        },
+        social: {
+            imgKey: 'social_smile_b64',
+            text: () => "Your mouth corners lift in a controlled way while the eye region stays relatively calm, which gives you a deliberate social smile suited to conversation and photos."
+        },
+        span: {
+            imgKey: 'smile_span_b64',
+            text: (d) => `Your smile spans about ${d.smile_span_px ? d.smile_span_px + 'px' : 'an average amount'} corner to corner, sitting within a natural range for your face and giving a balanced width that suits your other features.`
+        },
+        crowding: {
+            imgKey: 'crowding_b64',
+            text: () => "Your visible front teeth show slight edge and spacing irregularities, so the line looks naturally imperfect but still generally aligned rather than markedly crooked."
+        }
+    };
+    let smileFeatureData = null;
+
+    function selectSmileFeature(key){
+        document.querySelectorAll('.feature-tab').forEach(el=>el.classList.toggle('active', el.dataset.feature===key));
+        const f = SMILE_FEATURES[key];
+        if(!f) return;
+        const d = smileFeatureData || {};
+        document.getElementById('featureExplanationText').innerText = f.text(d);
+        const imgEl = document.getElementById('featureImage');
+        if(d[f.imgKey]){
+            imgEl.src = d[f.imgKey];
+            imgEl.style.display = 'block';
+        } else {
+            imgEl.removeAttribute('src');
+            imgEl.style.display = 'none';
+        }
+    }
 
     window.addEventListener('DOMContentLoaded',()=>{
         const dataStr=sessionStorage.getItem('faceData_smile');
@@ -376,6 +457,9 @@
             if(c2) c2.textContent='Teeth — Extracted';
         }
 
+        smileFeatureData = data;
+        selectSmileFeature('dimples');
+
         const det=document.getElementById('smileMetricsDetail');
         if(det){const rows=[
             ['Upper Smile Arc Curvature',data.upper_smile_arc_curvature],
@@ -386,7 +470,8 @@
             ['Teeth Exposure',data.teeth_exposure],
             ['Teeth Color',data.teeth_color],
             ['Mouth-to-Eye Ratio', data.mouth_to_eye_ratio],
-            ['Mouth Height (Center)', data.mouth_height_px ? data.mouth_height_px + ' px' : 'N/A']
+            ['Mouth Height (Center)', data.mouth_height_px ? data.mouth_height_px + ' px' : 'N/A'],
+            ['Average Smile Span', data.smile_span_px ? data.smile_span_px + ' px' : 'N/A']
         ];det.innerHTML=rows.map(([l,v])=>`<div class="metric-row"><span class="metric-label">${l}</span><span class="metric-val">${v||'N/A'}</span></div>`).join('');}
 
     });

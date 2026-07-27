@@ -277,16 +277,12 @@
     <!-- ══════════════════ ADVANCED NECK ANALYSIS ══════════════════ -->
     <div class="adv-section">
         <div class="adv-title">Advanced <span>neck</span> analysis</div>
-        <div class="adv-sub">Upload a front-facing photo (required) and a side/45° profile photo (optional) for a full landmark-based breakdown: primary dashboard, neck proportions, neck definition, and — with a profile photo — other visual features and the submental region.</div>
+        <div class="adv-sub">A full landmark-based breakdown using the Front Face and 45-Degree images you already uploaded on the Dashboard: primary dashboard, neck proportions, neck definition, and — since a 45° image is available — other visual features and the submental region.</div>
 
         <div class="upload-card">
-            <div class="upload-field">
-                <label for="neckFrontInput">Front face image</label>
-                <input type="file" id="neckFrontInput" accept="image/*">
-            </div>
-            <div class="upload-field">
-                <label for="neckSideInput">Side / 45° profile image <span style="text-transform:none;font-weight:400;">(optional)</span></label>
-                <input type="file" id="neckSideInput" accept="image/*">
+            <div class="upload-field" style="flex:1;">
+                <label>Image source</label>
+                <div class="upload-hint" id="neckImgSourceInfo">Checking Dashboard uploads...</div>
             </div>
             <button class="adv-btn" id="neckAdvBtn" onclick="runNeckAdvanced()">Run Advanced Analysis</button>
             <span class="adv-status" id="neckAdvStatus"></span>
@@ -443,24 +439,56 @@
         if(det){const rows=[['Neck Width',data.neck_width_mm?data.neck_width_mm+' mm':'N/A'],['Neck / Jaw Width Ratio',data.neck_width_to_jaw_width_ratio||'N/A'],['Width Classification',data.width_class],['Definition','N/A'],['Length','N/A'],['Aging','N/A']];det.innerHTML=rows.map(([l,v])=>`<div class="metric-row"><span class="metric-label">${l}</span><span class="metric-val">${v||'N/A'}</span></div>`).join('');}
     });
 
+    window.addEventListener('DOMContentLoaded', () => {
+        const ready = initNeckAdvancedSource();
+        if(ready) runNeckAdvanced();
+    });
+
     /* ══════════════════ ADVANCED NECK ANALYSIS ══════════════════ */
     let neckAdvData = null;
 
-    async function runNeckAdvanced(){
-        const frontInput = document.getElementById('neckFrontInput');
-        const sideInput  = document.getElementById('neckSideInput');
-        const statusEl   = document.getElementById('neckAdvStatus');
-        const btn        = document.getElementById('neckAdvBtn');
+    function dataURLtoFile(dataurl, filename){
+        const arr = dataurl.split(',');
+        const mimeMatch = arr[0].match(/:(.*?);/);
+        const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while(n--){ u8arr[n] = bstr.charCodeAt(n); }
+        return new File([u8arr], filename, { type: mime });
+    }
 
-        if(!frontInput.files.length){
-            statusEl.textContent = 'Please select a front face image.';
+    function initNeckAdvancedSource(){
+        const infoEl = document.getElementById('neckImgSourceInfo');
+        const frontDataUrl = sessionStorage.getItem('frontImageDataUrl');
+        const sideDataUrl  = sessionStorage.getItem('jawImageDataUrl'); // 45-degree image from Dashboard
+        if(!frontDataUrl){
+            infoEl.textContent = 'No Front Face image found. Please upload it on the Dashboard first.';
+            document.getElementById('neckAdvBtn').disabled = true;
+            return false;
+        }
+        infoEl.textContent = sideDataUrl
+            ? 'Using your Front Face + 45-Degree images from the Dashboard.'
+            : 'Using your Front Face image from the Dashboard (no 45-Degree image uploaded — some sections will be unavailable).';
+        return true;
+    }
+
+    async function runNeckAdvanced(){
+        const statusEl = document.getElementById('neckAdvStatus');
+        const btn      = document.getElementById('neckAdvBtn');
+
+        const frontDataUrl = sessionStorage.getItem('frontImageDataUrl');
+        const sideDataUrl  = sessionStorage.getItem('jawImageDataUrl'); // 45-degree image from Dashboard
+
+        if(!frontDataUrl){
+            statusEl.textContent = 'No Front Face image found. Please upload it on the Dashboard first.';
             statusEl.classList.add('err');
             return;
         }
 
         const fd = new FormData();
-        fd.append('neck_front', frontInput.files[0]);
-        if(sideInput.files.length) fd.append('neck_side', sideInput.files[0]);
+        fd.append('neck_front', dataURLtoFile(frontDataUrl, 'front.jpg'));
+        if(sideDataUrl) fd.append('neck_side', dataURLtoFile(sideDataUrl, 'side45.jpg'));
 
         btn.disabled = true;
         statusEl.classList.remove('err');

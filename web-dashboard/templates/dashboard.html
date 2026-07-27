@@ -533,6 +533,11 @@
         if (frontFile) {
             document.getElementById('frontUploadLabel').textContent = '✓ ' + frontFile.name;
             document.getElementById('frontUploadLabel').style.color = '#22c55e';
+            // Store front file so other pages (e.g. Neck) can reuse it without re-upload
+            const reader = new FileReader();
+            reader.onload = (ev) => sessionStorage.setItem('frontImageDataUrl', ev.target.result);
+            reader.readAsDataURL(frontFile);
+            sessionStorage.setItem('frontImageUploaded', 'true');
         }
         updateAnalyzeBtn();
     });

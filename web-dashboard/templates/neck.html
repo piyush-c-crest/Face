@@ -66,6 +66,96 @@
         .metric-row:hover { background:#f1f5f9; }
         .metric-label { color:var(--text-secondary); font-weight:500; }
         .metric-val { color:var(--text-primary); font-weight:600; }
+
+        /* ── Advanced Neck Analysis (neck_analysis.ipynb) ── */
+        .adv-section { margin-top:56px; }
+        .adv-title { font-size:24px; font-weight:600; margin-bottom:6px; letter-spacing:-0.3px; }
+        .adv-title span { color:var(--text-highlight); }
+        .adv-sub { font-size:14px; color:var(--text-secondary); margin-bottom:20px; max-width:720px; line-height:1.5; }
+
+        .upload-card { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:24px; box-shadow:0 2px 10px rgba(0,0,0,0.02); display:flex; gap:20px; align-items:flex-end; flex-wrap:wrap; }
+        .upload-field { display:flex; flex-direction:column; gap:6px; }
+        .upload-field label { font-size:11px; text-transform:uppercase; letter-spacing:1px; font-weight:600; color:var(--text-secondary); }
+        .upload-field input[type=file] { font-size:13px; max-width:230px; }
+        .upload-hint { font-size:12px; color:var(--text-highlight); }
+        .adv-btn { background:#1e293b; color:#fff; border:none; padding:11px 22px; border-radius:8px; font-size:14px; font-weight:500; cursor:pointer; font-family:'Inter',sans-serif; }
+        .adv-btn:hover { background:#334155; }
+        .adv-btn:disabled { background:#cbd5e1; cursor:not-allowed; }
+        .adv-status { font-size:13px; color:var(--text-secondary); margin-left:4px; }
+        .adv-status.err { color:#b91c1c; }
+
+        .adv-block { background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:32px; margin-top:20px; box-shadow:0 2px 10px rgba(0,0,0,0.02); display:none; }
+        .adv-block-title { font-size:20px; font-weight:500; margin-bottom:6px; }
+        .adv-block-desc { font-size:14px; color:var(--text-secondary); margin-bottom:24px; line-height:1.5; }
+
+        /* Toggle buttons (dashboard / feature selectors) */
+        .toggle-row { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
+        .toggle-btn { padding:8px 16px; border-radius:20px; border:1px solid var(--border-color); background:#f8fafc; color:var(--text-secondary); font-size:13px; font-weight:500; cursor:pointer; font-family:'Inter',sans-serif; }
+        .toggle-btn.active { background:#1e293b; color:#fff; border-color:#1e293b; }
+
+        .dp-grid { display:grid; grid-template-columns:1fr 1fr; gap:32px; align-items:start; }
+        .dp-imgwrap { background:#f8fafc; border:1px solid var(--border-color); border-radius:12px; display:flex; align-items:center; justify-content:center; overflow:hidden; min-height:280px; }
+        .dp-imgwrap img { width:100%; height:100%; object-fit:contain; }
+        .dp-panel-title { font-size:17px; font-weight:500; margin-bottom:10px; }
+        .dp-panel-desc { font-size:13px; color:var(--text-secondary); line-height:1.6; margin-bottom:28px; }
+        .dp-scorebox { background:#f8fafc; border-radius:10px; padding:22px; border:1px solid var(--border-color); }
+        .dp-scorebox-top { display:flex; justify-content:space-between; margin-bottom:18px; }
+        .dp-lbl { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--text-highlight); font-weight:600; }
+        .dp-val { font-size:22px; font-weight:600; margin-top:6px; }
+        .dp-track { height:4px; background:var(--bar-bg); border-radius:2px; position:relative; margin-bottom:12px; }
+        .dp-thumb { width:6px; height:14px; background:#1e293b; border-radius:2px; position:absolute; top:-5px; transform:translateX(-50%); }
+        .dp-range { display:flex; justify-content:space-between; font-size:12px; font-weight:600; }
+
+        /* Feature grid (Other Visual Features) */
+        .feat-grid { display:grid; grid-template-columns:1fr 1fr; gap:28px; }
+        .feat-imgwrap { background:#f8fafc; border-radius:10px; overflow:hidden; display:flex; align-items:center; justify-content:center; min-height:260px; border:1px solid var(--border-color); }
+        .feat-imgwrap img { max-width:100%; max-height:100%; object-fit:contain; }
+        .feat-desc-box { background:#f8fafc; border:1px solid var(--border-color); border-radius:10px; padding:22px; font-size:13px; color:var(--text-secondary); line-height:1.6; }
+
+        /* Proportions bar chart */
+        .prop-grid { display:grid; grid-template-columns:1fr 1fr; gap:28px; }
+        .prop-imgwrap { background:#f8fafc; border:1px solid var(--border-color); border-radius:10px; overflow:hidden; display:flex; align-items:center; justify-content:center; min-height:260px; }
+        .prop-imgwrap img { width:100%; height:100%; object-fit:cover; }
+        .prop-chart-row { display:flex; justify-content:space-around; margin-bottom:20px; }
+        .prop-col { text-align:center; }
+        .prop-col-title { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--text-highlight); font-weight:600; margin-bottom:10px; }
+        .prop-col-rel { font-size:13px; color:var(--text-secondary); margin-bottom:16px; }
+        .prop-col-rel b { color:var(--text-primary); font-weight:600; }
+        .prop-bar-wrap { height:110px; display:flex; justify-content:center; margin-bottom:16px; }
+        .prop-bar-bg { width:12px; height:100%; background:var(--bar-bg); border-radius:6px; position:relative; overflow:hidden; }
+        .prop-bar-fill { position:absolute; bottom:0; left:0; width:100%; background:#334155; border-radius:6px; }
+        .prop-col-val { font-size:16px; font-weight:600; }
+
+        /* Submental vertical slider */
+        .sub-grid { display:grid; grid-template-columns:1fr 300px; gap:24px; }
+        .sub-imgwrap { border:1px solid var(--border-color); border-radius:10px; overflow:hidden; display:flex; align-items:center; justify-content:center; min-height:280px; background:#f8fafc; }
+        .sub-imgwrap img { width:100%; height:100%; object-fit:cover; }
+        .sub-panel { background:#f8fafc; border:1px solid var(--border-color); border-radius:10px; padding:22px; }
+        .v-slider-wrap { position:relative; height:220px; padding-right:22px; margin-top:24px; display:flex; justify-content:flex-end; }
+        .v-bar { width:6px; background:var(--bar-bg); border-radius:3px; height:100%; position:relative; }
+        .v-bar-fill { position:absolute; width:100%; background:#334155; top:25%; height:50%; border-radius:3px; }
+        .marker-you { position:absolute; right:32px; transform:translateY(-50%); display:flex; align-items:center; gap:6px; }
+        .marker-tag { background:#fff; border:1px solid var(--border-color); padding:3px 8px; border-radius:12px; font-size:11px; font-weight:600; }
+        .axis-lbl { position:absolute; right:-46px; font-size:11px; color:var(--text-secondary); transform:translateY(-50%); }
+        .range-mini { display:flex; justify-content:space-between; background:#f1f5f9; padding:10px 14px; border-radius:8px; margin-top:16px; font-size:12px; color:var(--text-secondary); }
+        .range-mini b { color:var(--text-primary); }
+
+        /* Definition score panel */
+        .def-grid { display:grid; grid-template-columns:1fr 1fr; gap:28px; }
+        .def-imgwrap { background:#f8fafc; border:1px solid var(--border-color); border-radius:10px; overflow:hidden; display:flex; align-items:center; justify-content:center; min-height:260px; }
+        .def-imgwrap img { width:100%; height:100%; object-fit:cover; }
+        .def-right { display:flex; flex-direction:column; gap:16px; }
+        .score-panel { border:1px solid var(--border-color); border-radius:10px; padding:26px; text-align:center; background:#f8fafc; }
+        .score-panel-title { font-size:15px; font-weight:500; margin-bottom:10px; }
+        .score-panel-val { font-size:56px; font-weight:400; color:#334155; letter-spacing:-1px; }
+        .score-panel-footer { display:flex; justify-content:space-between; margin-top:16px; font-size:13px; }
+        .score-tag { background:#f0fdf4; color:#166534; border:1px solid #dcfce7; padding:3px 10px; border-radius:12px; font-weight:500; }
+        .slider-panel-def { border:1px solid var(--border-color); border-radius:10px; padding:20px; background:#f8fafc; }
+        .slider-track-def { height:4px; background:var(--bar-bg); border-radius:2px; position:relative; margin:24px 0 10px; }
+        .slider-thumb-def { width:8px; height:8px; background:#1e293b; border-radius:2px; position:absolute; top:50%; transform:translate(-50%,-50%); }
+        .slider-labels-def { display:flex; justify-content:space-between; font-size:12px; font-weight:600; }
+
+        .not-avail { font-size:13px; color:var(--text-secondary); font-style:italic; }
     </style>
 </head>
 <body>
@@ -183,6 +273,136 @@
             <div id="neckMetricsDetail" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 32px;"></div>
         </div>
     </div>
+
+    <!-- ══════════════════ ADVANCED NECK ANALYSIS ══════════════════ -->
+    <div class="adv-section">
+        <div class="adv-title">Advanced <span>neck</span> analysis</div>
+        <div class="adv-sub">Upload a front-facing photo (required) and a side/45° profile photo (optional) for a full landmark-based breakdown: primary dashboard, neck proportions, neck definition, and — with a profile photo — other visual features and the submental region.</div>
+
+        <div class="upload-card">
+            <div class="upload-field">
+                <label for="neckFrontInput">Front face image</label>
+                <input type="file" id="neckFrontInput" accept="image/*">
+            </div>
+            <div class="upload-field">
+                <label for="neckSideInput">Side / 45° profile image <span style="text-transform:none;font-weight:400;">(optional)</span></label>
+                <input type="file" id="neckSideInput" accept="image/*">
+            </div>
+            <button class="adv-btn" id="neckAdvBtn" onclick="runNeckAdvanced()">Run Advanced Analysis</button>
+            <span class="adv-status" id="neckAdvStatus"></span>
+        </div>
+
+        <!-- 1. Primary Dashboard -->
+        <div class="adv-block" id="blockDashboard">
+            <div class="adv-block-title">An overview of your <span style="color:var(--text-highlight);">neck</span></div>
+            <div class="adv-block-desc">The neck is often overlooked in aesthetics, yet without harmonious neck features, the face can appear less attractive.</div>
+            <div class="dp-imgwrap" style="margin-bottom:24px;min-height:320px;"><img id="advMainImg" src="" alt="Neck overview"></div>
+            <div class="toggle-row" id="dashToggleRow">
+                <div class="toggle-btn active" data-dp="width" onclick="renderDashDetail('width')">Neck Width</div>
+                <div class="toggle-btn" data-dp="ratio" onclick="renderDashDetail('ratio')">Neck/Jaw Ratio</div>
+                <div class="toggle-btn" data-dp="length" onclick="renderDashDetail('length')">Neck Length</div>
+            </div>
+            <div>
+                <div class="dp-panel-title" id="dpTitle">--</div>
+                <div class="dp-panel-desc" id="dpDesc">--</div>
+                <div class="dp-scorebox">
+                    <div class="dp-scorebox-top">
+                        <div><div class="dp-lbl" id="dpLbl">--</div><div class="dp-val" id="dpVal">--</div></div>
+                    </div>
+                    <div class="dp-track"><div class="dp-thumb" id="dpThumb"></div></div>
+                    <div class="dp-range"><span id="dpMin">--</span><span id="dpMax">--</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Other Visual Features -->
+        <div class="adv-block" id="blockFeatures">
+            <div class="adv-block-title">Other visual <span style="color:var(--text-highlight);">features</span> of your neck</div>
+            <div class="adv-block-desc">The neck has a simple aesthetic, but certain key factors can affect whether it appears more masculine or feminine.</div>
+            <div class="toggle-row" id="featToggleRow">
+                <div class="toggle-btn active" data-feat="softness_under_chin" onclick="renderFeature('softness_under_chin')">Softness Under Chin</div>
+                <div class="toggle-btn" data-feat="adams_apple" onclick="renderFeature('adams_apple')">Minimal Adam's Apple</div>
+                <div class="toggle-btn" data-feat="neck_lines" onclick="renderFeature('neck_lines')">Faint Neck Lines</div>
+                <div class="toggle-btn" data-feat="thinner_than_jaw" onclick="renderFeature('thinner_than_jaw')">Slightly Thinner Than Jaw</div>
+            </div>
+            <div class="feat-grid">
+                <div class="feat-desc-box" id="featDesc">--</div>
+                <div class="feat-imgwrap"><img id="featImg" src="" alt="Feature"></div>
+            </div>
+        </div>
+
+        <!-- 3. Neck Proportions -->
+        <div class="adv-block" id="blockProportions">
+            <div class="adv-block-title">A closer look at your neck <span style="color:var(--text-highlight);">proportions</span></div>
+            <div class="adv-block-desc">We assess neck proportions by comparing its height to width, which helps determine its slenderness and balance.</div>
+            <div class="prop-grid">
+                <div class="prop-imgwrap"><img id="propImg" src="" alt="Neck proportions"></div>
+                <div>
+                    <div class="dp-lbl" style="margin-bottom:10px;">NECK HEIGHT-TO-WIDTH RATIO</div>
+                    <div class="prop-chart-row">
+                        <div class="prop-col">
+                            <div class="prop-col-title">YOUR PROPORTION</div>
+                            <div class="prop-col-rel" id="propYourRel">--</div>
+                            <div class="prop-bar-wrap"><div class="prop-bar-bg"><div class="prop-bar-fill" id="propYourFill" style="height:0%;"></div></div></div>
+                            <div class="prop-col-val" id="propYourVal">--</div>
+                        </div>
+                        <div class="prop-col">
+                            <div class="prop-col-title">IDEAL PROPORTION</div>
+                            <div class="prop-col-rel" id="propIdealRel">--</div>
+                            <div class="prop-bar-wrap"><div class="prop-bar-bg"><div class="prop-bar-fill" id="propIdealFill" style="height:87%;"></div></div></div>
+                            <div class="prop-col-val" id="propIdealVal">--</div>
+                        </div>
+                    </div>
+                    <div class="feat-desc-box" id="propExp">--</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Submental Region -->
+        <div class="adv-block" id="blockSubmental">
+            <div class="adv-block-title">Evaluating your <span style="color:var(--text-highlight);">submental region</span></div>
+            <div class="adv-block-desc">The submental region affects the perception of jawline sharpness and neck definition.</div>
+            <div class="sub-grid">
+                <div class="sub-imgwrap"><img id="subImg" src="" alt="Submental region"></div>
+                <div class="sub-panel">
+                    <div class="dp-lbl">SUBMENTAL ANGLE</div>
+                    <div class="dp-val" id="subCat">--</div>
+                    <div class="v-slider-wrap">
+                        <div class="marker-you" id="subMarker"><div class="marker-tag">You ( <span id="subAngleVal">--</span>&deg; )</div></div>
+                        <div class="v-bar"><div class="v-bar-fill"></div></div>
+                        <div class="axis-lbl" id="subAxisMin" style="top:25%;">80&deg; &mdash;</div>
+                        <div class="axis-lbl" id="subAxisMax" style="top:75%;">120&deg; &mdash;</div>
+                    </div>
+                    <div class="range-mini"><span>Ideal range</span><b id="subIdeal">--</b></div>
+                    <div class="range-mini"><span>Normal range</span><b id="subNormal">--</b></div>
+                </div>
+            </div>
+            <div class="feat-desc-box" id="subExp" style="margin-top:24px;">--</div>
+        </div>
+
+        <!-- 5. Neck Definition -->
+        <div class="adv-block" id="blockDefinition">
+            <div class="adv-block-title">The definition of your <span style="color:var(--text-highlight);">neck</span></div>
+            <div class="adv-block-desc">We evaluate your neck definition by assessing its musculature, vascularity, and the visibility of its underlying structure.</div>
+            <div class="def-grid">
+                <div class="def-imgwrap"><img id="defImg" src="" alt="Neck definition"></div>
+                <div class="def-right">
+                    <div class="score-panel">
+                        <div class="score-panel-title">Neck Muscularity</div>
+                        <div class="score-panel-val" id="defScore">--</div>
+                        <div class="score-panel-footer"><span class="score-tag" id="defTag">--</span><span>/100</span></div>
+                    </div>
+                    <div class="slider-panel-def">
+                        <div class="dp-lbl">NECK MUSCULARITY</div>
+                        <div class="dp-panel-title" id="defCat" style="margin:8px 0 0;">--</div>
+                        <div class="slider-track-def"><div class="slider-thumb-def" id="defThumb"></div></div>
+                        <div class="slider-labels-def"><span>Slim</span><span>Muscular</span></div>
+                    </div>
+                    <div class="feat-desc-box" id="defExp">--</div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -222,6 +442,155 @@
         const det=document.getElementById('neckMetricsDetail');
         if(det){const rows=[['Neck Width',data.neck_width_mm?data.neck_width_mm+' mm':'N/A'],['Neck / Jaw Width Ratio',data.neck_width_to_jaw_width_ratio||'N/A'],['Width Classification',data.width_class],['Definition','N/A'],['Length','N/A'],['Aging','N/A']];det.innerHTML=rows.map(([l,v])=>`<div class="metric-row"><span class="metric-label">${l}</span><span class="metric-val">${v||'N/A'}</span></div>`).join('');}
     });
+
+    /* ══════════════════ ADVANCED NECK ANALYSIS ══════════════════ */
+    let neckAdvData = null;
+
+    async function runNeckAdvanced(){
+        const frontInput = document.getElementById('neckFrontInput');
+        const sideInput  = document.getElementById('neckSideInput');
+        const statusEl   = document.getElementById('neckAdvStatus');
+        const btn        = document.getElementById('neckAdvBtn');
+
+        if(!frontInput.files.length){
+            statusEl.textContent = 'Please select a front face image.';
+            statusEl.classList.add('err');
+            return;
+        }
+
+        const fd = new FormData();
+        fd.append('neck_front', frontInput.files[0]);
+        if(sideInput.files.length) fd.append('neck_side', sideInput.files[0]);
+
+        btn.disabled = true;
+        statusEl.classList.remove('err');
+        statusEl.textContent = 'Analyzing...';
+
+        try {
+            const res = await fetch('/analyze_neck_advanced', { method:'POST', body: fd });
+            const json = await res.json();
+            if(!res.ok || json.error){
+                statusEl.textContent = json.error || 'Analysis failed.';
+                statusEl.classList.add('err');
+                btn.disabled = false;
+                return;
+            }
+            neckAdvData = json.neck_advanced;
+            statusEl.textContent = 'Done.';
+            btn.disabled = false;
+            renderNeckAdvanced();
+        } catch(e){
+            statusEl.textContent = 'Network error: ' + e.message;
+            statusEl.classList.add('err');
+            btn.disabled = false;
+        }
+    }
+
+    function renderNeckAdvanced(){
+        if(!neckAdvData) return;
+
+        // 1. Primary dashboard
+        document.getElementById('blockDashboard').style.display = 'block';
+        document.getElementById('advMainImg').src = neckAdvData.main_image_b64 || '';
+        renderDashDetail('width');
+
+        // 2. Other visual features (needs profile image)
+        if(neckAdvData.profile_available && neckAdvData.visual_features){
+            document.getElementById('blockFeatures').style.display = 'block';
+            renderFeature('softness_under_chin');
+        }
+
+        // 3. Neck proportions
+        if(neckAdvData.proportions){
+            document.getElementById('blockProportions').style.display = 'block';
+            const p = neckAdvData.proportions;
+            document.getElementById('propImg').src = p.image_b64 || '';
+            document.getElementById('propYourRel').innerHTML = p.relation_text;
+            document.getElementById('propIdealRel').innerHTML = p.ideal_relation_text;
+            document.getElementById('propYourFill').style.height = p.your_fill + '%';
+            document.getElementById('propIdealFill').style.height = p.ideal_fill + '%';
+            document.getElementById('propYourVal').textContent = p.ratio.toFixed(2) + ' : 1.00';
+            document.getElementById('propIdealVal').textContent = p.ideal_ratio.toFixed(2) + ' : 1.00';
+            document.getElementById('propExp').textContent = p.explanation;
+        }
+
+        // 4. Submental region (needs profile image)
+        if(neckAdvData.profile_available && neckAdvData.submental){
+            document.getElementById('blockSubmental').style.display = 'block';
+            const s = neckAdvData.submental;
+            document.getElementById('subImg').src = s.image_b64 || '';
+            document.getElementById('subCat').textContent = s.category;
+            document.getElementById('subAngleVal').textContent = s.angle;
+            document.getElementById('subMarker').style.top = s.marker_pct + '%';
+            document.getElementById('subAxisMin').textContent = s.min_deg + '\u00b0 \u2014';
+            document.getElementById('subAxisMax').textContent = s.max_deg + '\u00b0 \u2014';
+            document.getElementById('subIdeal').textContent = s.ideal_range;
+            document.getElementById('subNormal').textContent = s.normal_range;
+            document.getElementById('subExp').textContent = s.explanation;
+        }
+
+        // 5. Neck definition
+        if(neckAdvData.definition){
+            document.getElementById('blockDefinition').style.display = 'block';
+            const d = neckAdvData.definition;
+            document.getElementById('defImg').src = d.image_b64 || '';
+            document.getElementById('defScore').textContent = d.score;
+            document.getElementById('defTag').textContent = d.tag;
+            document.getElementById('defCat').textContent = d.category;
+            document.getElementById('defThumb').style.left = d.score + '%';
+            document.getElementById('defExp').textContent = d.explanation;
+        }
+    }
+
+    function renderDashDetail(which){
+        if(!neckAdvData || !neckAdvData.dashboard) return;
+        const db = neckAdvData.dashboard;
+        document.querySelectorAll('#dashToggleRow .toggle-btn').forEach(b=>b.classList.toggle('active', b.dataset.dp===which));
+
+        let title, desc, lbl, val, vmin, vmax, pct;
+        if(which==='width'){
+            title = neckAdvData.dashboard.neck_width_category;
+            desc  = db.neck_width_desc;
+            lbl   = 'NECK WIDTH';
+            val   = db.neck_width_mm.toFixed(2) + ' mm';
+            vmin=80; vmax=100;
+            pct = Math.min(100, Math.max(0, (db.neck_width_mm - vmin) / (vmax - vmin) * 100));
+            document.getElementById('dpMin').textContent = vmin.toFixed(2) + ' mm';
+            document.getElementById('dpMax').textContent = vmax.toFixed(2) + ' mm';
+        } else if(which==='ratio'){
+            title = db.neck_jaw_ratio_title;
+            desc  = db.neck_jaw_ratio_desc;
+            lbl   = 'NECK WIDTH TO JAW WIDTH RATIO';
+            val   = db.neck_jaw_ratio.toFixed(2);
+            vmin=0.75; vmax=0.95;
+            pct = Math.min(100, Math.max(0, (db.neck_jaw_ratio - vmin) / (vmax - vmin) * 100));
+            document.getElementById('dpMin').textContent = vmin.toFixed(2);
+            document.getElementById('dpMax').textContent = vmax.toFixed(2);
+        } else {
+            title = db.neck_length_title;
+            desc  = db.neck_length_desc;
+            lbl   = 'NECK LENGTH';
+            val   = db.neck_length_mm.toFixed(2) + ' mm';
+            vmin=70; vmax=95;
+            pct = Math.min(100, Math.max(0, (db.neck_length_mm - vmin) / (vmax - vmin) * 100));
+            document.getElementById('dpMin').textContent = vmin.toFixed(2) + ' mm';
+            document.getElementById('dpMax').textContent = vmax.toFixed(2) + ' mm';
+        }
+        document.getElementById('dpTitle').textContent = title;
+        document.getElementById('dpDesc').textContent = desc;
+        document.getElementById('dpLbl').textContent = lbl;
+        document.getElementById('dpVal').textContent = val;
+        document.getElementById('dpThumb').style.left = pct + '%';
+    }
+
+    function renderFeature(which){
+        if(!neckAdvData || !neckAdvData.visual_features) return;
+        const f = neckAdvData.visual_features[which];
+        if(!f) return;
+        document.querySelectorAll('#featToggleRow .toggle-btn').forEach(b=>b.classList.toggle('active', b.dataset.feat===which));
+        document.getElementById('featImg').src = f.image_b64 || '';
+        document.getElementById('featDesc').textContent = f.desc;
+    }
 </script>
 </body>
 </html>

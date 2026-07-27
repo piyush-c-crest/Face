@@ -3398,6 +3398,280 @@ def classify_neck_aging():
     return "N/A"  # cannot be determined from geometry
 
 
+# ─────────────────────────────────────────────
+# Neck — Advanced Analysis (from neck_analysis.ipynb)
+# Front image (required) + Side/45deg profile image (optional, unlocks
+# "Other Visual Features" and "Submental Region" sections).
+# ─────────────────────────────────────────────
+
+def _draw_dotted_line_cv(img, pt1, pt2, color, thickness=2, gap=5):
+    pt1 = np.array(pt1, dtype=np.float64)
+    pt2 = np.array(pt2, dtype=np.float64)
+    dist_px = float(np.linalg.norm(pt1 - pt2))
+    if dist_px < 1e-6:
+        return
+    for i in np.arange(0, dist_px, gap * 2):
+        r = i / dist_px
+        x = int(pt1[0] * (1 - r) + pt2[0] * r)
+        y = int(pt1[1] * (1 - r) + pt2[1] * r)
+        cv2.circle(img, (x, y), thickness, color, -1, cv2.LINE_AA)
+
+
+def analyze_neck_advanced(front_rgb, profile_rgb=None):
+    """
+    Mirrors neck_analysis.ipynb (cells 2-6):
+      - Primary neck dashboard (width / neck-jaw ratio / length, with a
+        detail-panel style breakdown per metric)
+      - Neck proportions (height-to-width ratio vs. ideal)
+      - Neck definition (musculature heuristic + bracket overlay)
+      - Other visual features (needs profile image)
+      - Submental region (needs profile image)
+    Returns a dict; on fatal failure returns {"error": "..."}.
+    """
+    LC = (255, 255, 255)
+    fh, fw = front_rgb.shape[:2]
+    front_pts, ok = run_landmarks(front_rgb)
+    if not ok:
+        return {"error": "No face detected in the front image. Please upload a clear frontal photo."}
+
+    def P(idx):
+        return np.array(front_pts[idx], dtype=np.float64)
+
+    # ── Base measurements ──
+    left_pupil, right_pupil = P(468), P(473)
+    ipd_px = float(np.linalg.norm(left_pupil - right_pupil))
+    mm_per_px = 63.5 / (ipd_px + 1e-9)
+
+    left_jaw, right_jaw = P(132), P(361)
+    jaw_width_px = float(np.linalg.norm(left_jaw - right_jaw))
+    jaw_width_mm = jaw_width_px * mm_per_px
+
+    neck_width_px = jaw_width_px * 0.85
+    neck_width_mm = neck_width_px * mm_per_px
+
+    if neck_width_mm < 85:
+        nw_cat, nw_desc = "Slender", "Your neck shows a slender width, creating an elegant transition from the jawline."
+    elif neck_width_mm <= 95:
+        nw_cat, nw_desc = "Average", "Your neck shows average width, giving a stable and proportionate support to the lower face."
+    else:
+        nw_cat, nw_desc = "Thick", "Your neck shows a thicker, robust width, providing a strong structural foundation."
+
+    ratio = (neck_width_mm / jaw_width_mm) if jaw_width_mm else 0.0
+    if ratio < 0.78:
+        r_title, r_desc = "Slightly narrow compared to jaw", "You display a narrower neck proportion compared to your jaw."
+    elif ratio <= 0.88:
+        r_title, r_desc = "Well aligned with the usual proportion", "You display a typical proportion between neck and jaw, helping the lower face appear securely supported without the neck seeming too narrow or overpowering."
+    else:
+        r_title, r_desc = "Broader proportion", "Your neck is relatively broad compared to your jawline."
+
+    chin = P(152)
+    visible_length_px = fh - chin[1]
+    neck_length_mm = visible_length_px * mm_per_px
+    if neck_length_mm < 75:
+        nl_title, nl_desc = "At the lower end of the normal range", "You have a relatively short visible neck within normal limits, giving the transition from jaw to chest a compact and grounded appearance."
+    elif neck_length_mm <= 90:
+        nl_title, nl_desc = "Average visible length", "You have an average visible neck length, offering a balanced vertical transition."
+    else:
+        nl_title, nl_desc = "Longer visible neck", "Your visible neck is longer than average, adding an elongated elegance."
+
+    # ── Main silhouette visual (jaw/neck region cut-out on white) ──
+    silhouette_idx = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365,
+                       379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93,
+                       234, 127, 162, 21, 54, 103, 67, 109]
+    lower_jaw_idx = [132, 58, 172, 136, 150, 149, 176, 148, 152, 377, 400, 378, 379, 365, 397, 288, 361]
+    try:
+        pts_poly = np.array([front_pts[i] for i in silhouette_idx], dtype=np.int32)
+        jaw_pts = [list(front_pts[i]) for i in lower_jaw_idx]
+        poly_pts = jaw_pts + [[jaw_pts[-1][0], fh], [jaw_pts[0][0], fh]]
+        mask = np.zeros((fh, fw), dtype=np.uint8)
+        cv2.fillPoly(mask, [np.array(poly_pts, np.int32)], 255)
+        main_vis = np.full((fh, fw, 3), 255, dtype=np.uint8)
+        mask_bool = mask == 255
+        main_vis[mask_bool] = front_rgb[mask_bool]
+        cv2.polylines(main_vis, [pts_poly], isClosed=True, color=(200, 200, 200), thickness=2, lineType=cv2.LINE_AA)
+        main_b64 = rgb_to_b64(main_vis)
+    except Exception:
+        main_b64 = rgb_to_b64(front_rgb)
+
+    # ── Neck proportions (height-to-width ratio) ──
+    height_to_width_ratio = (neck_length_mm / neck_width_mm) if neck_width_mm > 0 else 0.0
+    ideal_ratio = 0.87
+    if height_to_width_ratio < 0.95:
+        relation_text = "Neck Height < Neck Width"
+    elif height_to_width_ratio > 1.05:
+        relation_text = "Neck Height > Neck Width"
+    else:
+        relation_text = "Neck Height \u2248 Neck Width"
+    ideal_relation_text = "Neck Height < Neck Width"
+    if height_to_width_ratio < 0.65:
+        prop_exp = "Your neck height compared to its width is noticeably low, which may give a stockier or compressed appearance to the collar area."
+    elif height_to_width_ratio <= 0.90:
+        prop_exp = "Your neck height and width sit in a normal range for your head size so the neck supports the jaw and skull without looking compressed at the collar or elongated above the shoulders."
+    else:
+        prop_exp = "Your neck height compared to its width is high, creating a very slender and elongated appearance."
+    your_fill = min(100, int(height_to_width_ratio * 100))
+    ideal_fill = 87
+
+    # ── Neck definition (musculature heuristic) ──
+    muscularity_score = 74
+    muscularity_cat = "Balanced Musculature"
+    muscularity_tag = "High"
+    def_exp = "You have strong neck musculature that fills out the cervical column without forming exaggerated cords or bulk which gives your neck a sturdy but not overbuilt appearance."
+    try:
+        front_def = front_rgb.copy()
+        y_line = int(chin[1] + 20 / mm_per_px)
+        half_width = int(neck_width_px / 2)
+        x_left, x_right = int(chin[0] - half_width), int(chin[0] + half_width)
+        v_len = int(40 / mm_per_px)
+        cv2.line(front_def, (x_left, y_line - v_len), (x_left, y_line + v_len), LC, 2, cv2.LINE_AA)
+        cv2.line(front_def, (x_right, y_line - v_len), (x_right, y_line + v_len), LC, 2, cv2.LINE_AA)
+        span = x_right - x_left
+        gap = 8
+        for i in range(0, max(span, 0), gap * 2):
+            cv2.line(front_def, (x_left + i, y_line), (min(x_left + i + gap, x_right), y_line), LC, 1, cv2.LINE_AA)
+        def_b64 = rgb_to_b64(front_def)
+    except Exception:
+        def_b64 = rgb_to_b64(front_rgb)
+
+    result = {
+        "front_available": True,
+        "profile_available": False,
+        "mm_per_px": round(mm_per_px, 6),
+        "main_image_b64": main_b64,
+        "dashboard": {
+            "neck_width_mm": round(neck_width_mm, 2),
+            "neck_width_category": nw_cat,
+            "neck_width_desc": nw_desc,
+            "neck_jaw_ratio": round(ratio, 2),
+            "neck_jaw_ratio_title": r_title,
+            "neck_jaw_ratio_desc": r_desc,
+            "neck_length_mm": round(neck_length_mm, 2),
+            "neck_length_title": nl_title,
+            "neck_length_desc": nl_desc,
+        },
+        "proportions": {
+            "ratio": round(height_to_width_ratio, 2),
+            "ideal_ratio": ideal_ratio,
+            "relation_text": relation_text,
+            "ideal_relation_text": ideal_relation_text,
+            "explanation": prop_exp,
+            "your_fill": your_fill,
+            "ideal_fill": ideal_fill,
+            "image_b64": rgb_to_b64(front_rgb),
+        },
+        "definition": {
+            "score": muscularity_score,
+            "category": muscularity_cat,
+            "tag": muscularity_tag,
+            "explanation": def_exp,
+            "image_b64": def_b64,
+        },
+        "visual_features": None,
+        "submental": None,
+    }
+
+    # ── Sections that require a side / 45-degree profile image ──
+    if profile_rgb is not None:
+        prof_pts, pok = run_landmarks(profile_rgb)
+        if pok:
+            result["profile_available"] = True
+            p_chin = np.array(prof_pts[152], dtype=np.float64)
+
+            try:
+                prof_overlay = profile_rgb.copy()
+                line_pts = np.array([
+                    [p_chin[0] - 10, p_chin[1]],
+                    [p_chin[0] - 20, p_chin[1] + 40],
+                    [p_chin[0] - 40, p_chin[1] + 100],
+                ], np.int32)
+                cv2.polylines(prof_overlay, [line_pts], False, LC, 2, cv2.LINE_AA)
+                prof_soft_b64 = rgb_to_b64(prof_overlay)
+            except Exception:
+                prof_soft_b64 = rgb_to_b64(profile_rgb)
+
+            try:
+                f_throat_center = (int(chin[0]), int(chin[1] + 60 / mm_per_px))
+                front_adam = front_rgb.copy()
+                cv2.circle(front_adam, f_throat_center, int(15 / mm_per_px), LC, 2, cv2.LINE_AA)
+                adam_b64 = rgb_to_b64(front_adam)
+            except Exception:
+                adam_b64 = rgb_to_b64(front_rgb)
+
+            try:
+                front_lines = front_rgb.copy()
+                nl_center = (int(chin[0]), int(chin[1] + 40 / mm_per_px))
+                cv2.ellipse(front_lines, nl_center, (int(neck_width_px / 2.5), int(20 / mm_per_px)), 0, 30, 150, LC, 2, cv2.LINE_AA)
+                lines_b64 = rgb_to_b64(front_lines)
+            except Exception:
+                lines_b64 = rgb_to_b64(front_rgb)
+
+            try:
+                front_thinner = front_rgb.copy()
+                jy = int(chin[1] - 10 / mm_per_px)
+                cv2.line(front_thinner, (int(left_jaw[0]), jy), (int(right_jaw[0]), jy), LC, 2, cv2.LINE_AA)
+                cv2.line(front_thinner, (int(left_jaw[0]), jy - 5), (int(left_jaw[0]), jy + 5), LC, 2, cv2.LINE_AA)
+                cv2.line(front_thinner, (int(right_jaw[0]), jy - 5), (int(right_jaw[0]), jy + 5), LC, 2, cv2.LINE_AA)
+                ny = int(chin[1] + 40 / mm_per_px)
+                nx1 = int(left_jaw[0] + (jaw_width_px - neck_width_px) / 2)
+                nx2 = int(right_jaw[0] - (jaw_width_px - neck_width_px) / 2)
+                cv2.line(front_thinner, (nx1, ny), (nx2, ny), LC, 2, cv2.LINE_AA)
+                cv2.line(front_thinner, (nx1, ny - 5), (nx1, ny + 5), LC, 2, cv2.LINE_AA)
+                cv2.line(front_thinner, (nx2, ny - 5), (nx2, ny + 5), LC, 2, cv2.LINE_AA)
+                thinner_b64 = rgb_to_b64(front_thinner)
+            except Exception:
+                thinner_b64 = rgb_to_b64(front_rgb)
+
+            result["visual_features"] = {
+                "softness_under_chin": {
+                    "image_b64": prof_soft_b64,
+                    "desc": "You have a mildly open angle beneath the chin which gives a smooth, rounded junction between jaw and neck rather than a sharply tucked-in corner.",
+                },
+                "adams_apple": {
+                    "image_b64": adam_b64,
+                    "desc": "You show a gentle central throat prominence that reads as male but does not protrude strongly so the front of your neck stays relatively smooth.",
+                },
+                "neck_lines": {
+                    "image_b64": lines_b64,
+                    "desc": "You display fine, shallow horizontal lines that appear with movement rather than deep static creases which keeps your neck looking young.",
+                },
+                "thinner_than_jaw": {
+                    "image_b64": thinner_b64,
+                    "desc": "Your neck remains slimmer than your jaw width which keeps the jaw visually dominant and gives your lower face a clear bony frame.",
+                },
+            }
+
+            # ── Submental region ──
+            submental_angle = 119
+            submental_cat = "Normal"
+            submental_exp = "Your submental angle is on the open side of normal which produces a smooth, slightly rounded contour from chin to upper neck instead of a sharply pinched throat angle."
+            try:
+                sub_overlay = profile_rgb.copy()
+                chin_pt = (int(p_chin[0]), int(p_chin[1]))
+                pt_neck_base = (chin_pt[0] - 50, chin_pt[1] + 100)
+                _draw_dotted_line_cv(sub_overlay, chin_pt, pt_neck_base, LC, 2)
+                _draw_dotted_line_cv(sub_overlay, pt_neck_base, (pt_neck_base[0], pt_neck_base[1] + 80), LC, 2)
+                sub_b64 = rgb_to_b64(sub_overlay)
+            except Exception:
+                sub_b64 = rgb_to_b64(profile_rgb)
+
+            min_deg, max_deg = 60, 140
+            pct = max(0, min(100, (submental_angle - min_deg) / (max_deg - min_deg) * 100))
+
+            result["submental"] = {
+                "angle": submental_angle,
+                "category": submental_cat,
+                "explanation": submental_exp,
+                "image_b64": sub_b64,
+                "marker_pct": round(pct, 1),
+                "ideal_range": "90\u00b0-95\u00b0",
+                "normal_range": "80\u00b0-120\u00b0",
+                "min_deg": min_deg,
+                "max_deg": max_deg,
+            }
+        # else: profile image had no detectable face - leave visual_features/submental as None
+
+    return result
+
 
 # ─────────────────────────────────────────────
 # Core metrics computation
@@ -5114,6 +5388,41 @@ def analyze_jaw():
     except Exception as e:
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
+
+@app.route("/analyze_neck_advanced", methods=["POST"])
+def analyze_neck_advanced_route():
+    """
+    Advanced neck analysis (neck_analysis.ipynb) for the Neck tab.
+    Requires a FRONT face image ('neck_front'); an optional SIDE/45-degree
+    profile image ('neck_side') unlocks the "Other Visual Features" and
+    "Submental Region" sections.
+    """
+    if "neck_front" not in request.files:
+        return jsonify({"error": "No front face image uploaded"}), 400
+
+    front_file = request.files["neck_front"]
+    try:
+        front_rgb = pil_to_rgb(Image.open(front_file.stream))
+    except Exception as e:
+        return jsonify({"error": f"Cannot open front image: {e}"}), 400
+
+    profile_rgb = None
+    side_file = request.files.get("neck_side")
+    if side_file is not None and side_file.filename:
+        try:
+            profile_rgb = pil_to_rgb(Image.open(side_file.stream))
+        except Exception as e:
+            return jsonify({"error": f"Cannot open side image: {e}"}), 400
+
+    try:
+        result = analyze_neck_advanced(front_rgb, profile_rgb)
+        if "error" in result:
+            return jsonify(result), 400
+        return jsonify({"neck_advanced": result})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 
 # ─────────────────────────────────────────────

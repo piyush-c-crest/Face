@@ -451,7 +451,7 @@
     }
     function setImg(id, b64) {
         const el = document.getElementById(id);
-        if (el && b64) el.src = 'data:image/jpeg;base64,' + b64;
+        if (el && b64) el.src = b64; // backend already returns a full data:image/... URI
     }
 
     // ── Draw jaw shape polygon on canvas ──
@@ -560,7 +560,7 @@
             panel.id = `feat-content-${i}`;
             panel.innerHTML = `
                 <div class="feat-img">
-                    <img src="${feat.image ? 'data:image/jpeg;base64,' + feat.image : ''}"
+                    <img src="${feat.image ? feat.image : ''}"
                          alt="${feat.title}" onerror="this.style.display='none'">
                 </div>
                 <div class="feat-explanation">
@@ -623,8 +623,8 @@
         const jawDataUrl = sessionStorage.getItem('jawImageDataUrl');
 
         function loadFallbackImages() {
-            if (img && data.jaw_image)       img.src = 'data:image/jpeg;base64,' + data.jaw_image;
-            if (imgWB && data.jaw_image_white) imgWB.src = 'data:image/jpeg;base64,' + data.jaw_image_white;
+            if (img && data.jaw_image)       img.src = data.jaw_image;
+            if (imgWB && data.jaw_image_white) imgWB.src = data.jaw_image_white;
         }
 
         if (jawDataUrl) {
@@ -640,8 +640,8 @@
                 .then(r => r.json())
                 .then(res => {
                     if (res.jaw) {
-                        if (img)   { img.src = 'data:image/jpeg;base64,' + res.jaw.jaw_cropped; img.style.opacity = '1'; }
-                        if (imgWB) { imgWB.src = 'data:image/jpeg;base64,' + res.jaw.jaw_overlay; imgWB.style.opacity = '1'; }
+                        if (img)   { img.src = res.jaw.jaw_cropped; img.style.opacity = '1'; }
+                        if (imgWB) { imgWB.src = res.jaw.jaw_overlay; imgWB.style.opacity = '1'; }
                         document.getElementById('jawImageLabel').innerText = '45-Degree Landmarks';
                         document.getElementById('jawImageWBLabel').innerText = '45-Degree Jaw Mask';
                     } else {

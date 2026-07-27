@@ -214,6 +214,42 @@
         .chip-mild    { background: #fef9c3; color: #854d0e; }
         .chip-bad     { background: #fee2e2; color: #991b1b; }
         .chip-neutral { background: #f1f5f9; color: #475569; }
+
+        /* ── Wrinkle Analysis ── */
+        .wr-card {
+            background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px;
+            padding: 32px; box-shadow: 0 2px 10px rgba(0,0,0,0.02); margin-bottom: 24px;
+        }
+        .wr-title { font-size: 20px; font-weight: 500; margin: 0 0 4px 0; }
+        .wr-title span { color: var(--text-highlight); }
+        .wr-sub { font-size: 13px; color: var(--text-secondary); margin: 0 0 24px 0; }
+        .wr-region-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+        .wr-region-btn {
+            font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500; color: var(--text-secondary);
+            background: #fff; border: 1px solid var(--border-color); border-radius: 20px;
+            padding: 8px 16px; cursor: pointer; transition: all 0.15s;
+        }
+        .wr-region-btn:hover { border-color: #cbd5e1; color: var(--text-primary); }
+        .wr-region-btn.active { background: #f8fafc; border-color: var(--text-primary); color: var(--text-primary); font-weight: 600; }
+        .wr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        .wr-left { position: relative; border-radius: 14px; overflow: hidden; background: #fafafa; min-height: 320px; display: flex; align-items: center; justify-content: center; }
+        .wr-left img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .wr-score-float {
+            position: absolute; bottom: 0; left: 0; width: 100%; box-sizing: border-box;
+            background: rgba(255,255,255,0.96); padding: 18px 20px; border-top: 1px solid var(--border-color);
+        }
+        .wr-score-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .wr-score-lbl { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+        .wr-score-val-wrap { display: flex; align-items: flex-end; }
+        .wr-score-val { font-size: 36px; font-weight: 500; line-height: 1; letter-spacing: -1px; color: var(--text-primary); }
+        .wr-score-max { font-size: 13px; color: var(--text-highlight); margin-left: 4px; margin-bottom: 4px; }
+        .wr-right { display: flex; flex-direction: column; gap: 16px; }
+        .wr-panel { border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; background: #fafafa; }
+        .wr-panel-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-highlight); font-weight: 600; margin-bottom: 12px; }
+        .wr-depth-row { display: flex; justify-content: space-between; align-items: center; }
+        .wr-depth-val { font-size: 28px; font-weight: 500; color: var(--text-primary); }
+        .wr-depth-unit { font-size: 15px; font-weight: 400; color: var(--text-secondary); }
+        .wr-explanation { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
     </style>
 </head>
 <body>
@@ -405,6 +441,42 @@
             <div id="allMetricsContainer" style="display:grid;grid-template-columns:1fr 1fr;gap:6px 32px;"></div>
         </div>
 
+        <!-- ══ Wrinkle Analysis ══ -->
+        <div class="wr-card" id="wrinkleCard" style="display:none;">
+            <div class="wr-title">An analysis of your <span>wrinkles</span></div>
+            <div class="wr-sub">We estimate the average predicted <b>depth</b> of wrinkles across each region of the face.</div>
+
+            <div class="wr-region-tabs" id="wrRegionTabs"></div>
+
+            <div class="wr-grid">
+                <div class="wr-left">
+                    <img id="wrImage" src="" alt="Wrinkle region">
+                    <div class="wr-score-float">
+                        <div class="wr-score-top">
+                            <div class="wr-score-lbl">Wrinkle Score</div>
+                            <span class="score-chip" id="wrScoreChip">--</span>
+                        </div>
+                        <div class="wr-score-val-wrap">
+                            <div class="wr-score-val" id="wrScoreVal">--</div>
+                            <div class="wr-score-max">/100</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="wr-right">
+                    <div class="wr-panel">
+                        <div class="wr-panel-lbl">Wrinkle Depth</div>
+                        <div class="wr-depth-row">
+                            <div><span class="wr-depth-val" id="wrDepthVal">--</span><span class="wr-depth-unit"> mm</span></div>
+                        </div>
+                    </div>
+                    <div class="wr-panel">
+                        <div class="wr-panel-lbl">Explanation</div>
+                        <div class="wr-explanation" id="wrExplanation">--</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div><!-- #results -->
 </div>
 
@@ -555,6 +627,42 @@
                 <span class="metric-val">${isClassification ? '' : val}${chipHtml}</span>
             </div>`;
         }).join('');
+
+        // ── Wrinkle Analysis ──
+        const wrinkles = data.wrinkles;
+        if (wrinkles && wrinkles.regions && Object.keys(wrinkles.regions).length > 0) {
+            const card = document.getElementById('wrinkleCard');
+            card.style.display = 'block';
+
+            const scoreChipClass = wrinkles.score_label === 'Good' ? 'chip-good'
+                                  : wrinkles.score_label === 'Average' ? 'chip-mild'
+                                  : 'chip-bad';
+            document.getElementById('wrScoreChip').textContent = wrinkles.score_label || '--';
+            document.getElementById('wrScoreChip').className = `score-chip ${scoreChipClass}`;
+            document.getElementById('wrScoreVal').textContent = (wrinkles.score !== null && wrinkles.score !== undefined) ? wrinkles.score : '--';
+
+            const regionNames = Object.keys(wrinkles.regions);
+            const tabsEl = document.getElementById('wrRegionTabs');
+            tabsEl.innerHTML = regionNames.map((name, i) =>
+                `<button class="wr-region-btn${i === 0 ? ' active' : ''}" data-region="${name}">${name}</button>`
+            ).join('');
+
+            function showWrinkleRegion(name) {
+                const r = wrinkles.regions[name];
+                if (!r) return;
+                document.getElementById('wrImage').src = r.image || '';
+                document.getElementById('wrDepthVal').textContent = (r.depth_mm !== null && r.depth_mm !== undefined) ? r.depth_mm.toFixed(2) : '--';
+                document.getElementById('wrExplanation').textContent = r.explanation || '--';
+                tabsEl.querySelectorAll('.wr-region-btn').forEach(btn =>
+                    btn.classList.toggle('active', btn.dataset.region === name));
+            }
+
+            tabsEl.querySelectorAll('.wr-region-btn').forEach(btn => {
+                btn.addEventListener('click', () => showWrinkleRegion(btn.dataset.region));
+            });
+
+            showWrinkleRegion(regionNames[0]);
+        }
     });
 </script>
 </body>

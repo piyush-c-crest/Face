@@ -3107,6 +3107,126 @@ def analyze_skin(img_rgb: np.ndarray, pts: np.ndarray):
         }
 
 
+# ─────────────────────────────────────────────
+# Wrinkle Depth Analysis
+# ─────────────────────────────────────────────
+
+_WRINKLE_REGIONS = {
+    'Forehead':     [103, 67, 109, 10, 338, 297, 332, 284, 251, 389, 356, 454],
+    'Nose':         [168, 6, 197, 195, 5, 4, 1, 19, 94],
+    'L. Undereye':  [111, 117, 118, 119, 120, 121, 128, 245],
+    'R. Undereye':  [340, 346, 347, 348, 349, 350, 357, 465],
+    'L. Cheek':     [205, 206, 216, 212, 210, 211, 214, 192],
+    'R. Cheek':     [425, 426, 436, 432, 430, 431, 434, 416],
+    'Chin':         [152, 148, 176, 149, 150, 136, 172, 58, 132, 215, 435, 361],
+}
+_IPD_MM = 63.0
+
+
+def _wrinkle_explanation(region: str, depth_mm: float) -> str:
+    if depth_mm < 0.15:
+        if region == 'Forehead':
+            return "You show only very faint expression lines on the forehead so structural aging remains minimal in this zone."
+        elif region == 'Nose':
+            return "The nose shows no fixed wrinkles so the skin here retains youthful elasticity."
+        elif region == 'Chin':
+            return "The chin shows no fixed lines or mental crease so structural aging remains minimal here."
+        else:
+            return f"The {region.lower()} area shows only faint fine lines reflecting normal micro-texture rather than deep structural folding."
+    else:
+        if region == 'Forehead':
+            return "You have visible horizontal lines forming across the forehead due to regular expression and structural folding."
+        elif region == 'Nose':
+            return "Bunny lines are becoming visible on the bridge of the nose."
+        elif region == 'Chin':
+            return "A slight mental crease is developing above the chin."
+        else:
+            return f"You display visible folding or depth in the {region.lower()} area which is a natural part of structural skin aging."
+
+
+def analyze_wrinkles(img_rgb: np.ndarray, pts: np.ndarray):
+    """
+    Per-region wrinkle depth (mm) analysis using MediaPipe landmarks + blackhat
+    morphology (CLAHE-enhanced grayscale). Mirrors skin_analysis_extend.ipynb.
+    Returns a dict: {"score": int, "score_label": str, "regions": {name: {...}}}
+    """
+    try:
+        h, w = img_rgb.shape[:2]
+
+        def get_pt(idx):
+            return np.array([int(pts[idx][0]), int(pts[idx][1])])
+
+        left_pupil = get_pt(468)
+        right_pupil = get_pt(473)
+        ipd_px = float(np.linalg.norm(left_pupil - right_pupil))
+        if ipd_px < 1e-6:
+            ipd_px = 1.0
+        mm_per_px = _IPD_MM / ipd_px
+
+        gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        enhanced_gray = clahe.apply(gray)
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
+        blackhat = cv2.morphologyEx(enhanced_gray, cv2.MORPH_BLACKHAT, kernel)
+
+        region_data = {}
+        overall_score_accum = 0.0
+
+        for name, indices in _WRINKLE_REGIONS.items():
+            region_pts = np.array([get_pt(idx) for idx in indices], np.int32)
+            if name == 'Forehead':
+                y_shift = int(30 / mm_per_px)
+                region_pts[:, 1] -= y_shift
+
+            mask = np.zeros((h, w), dtype=np.uint8)
+            hull = cv2.convexHull(region_pts)
+            cv2.fillConvexPoly(mask, hull, 255)
+
+            masked_bh = cv2.bitwise_and(blackhat, blackhat, mask=mask)
+            max_val = float(np.percentile(masked_bh[mask > 0], 95)) if np.sum(mask) > 0 else 0.0
+
+            depth_mm = (max_val * 0.0015) + 0.05
+            overall_score_accum += max_val
+
+            heatmap_bgr = cv2.applyColorMap(masked_bh, cv2.COLORMAP_INFERNO)
+            heatmap_rgb = cv2.cvtColor(heatmap_bgr, cv2.COLOR_BGR2RGB)
+            alpha = np.clip((masked_bh.astype(np.float32) / 255.0) * 1.5, 0, 1)
+
+            overlay = img_rgb.copy().astype(np.float32)
+            for c in range(3):
+                overlay[:, :, c] = np.where(
+                    mask > 0,
+                    overlay[:, :, c] * (1 - alpha) + heatmap_rgb[:, :, c] * alpha,
+                    overlay[:, :, c],
+                )
+            overlay = overlay.astype(np.uint8)
+
+            region_data[name] = {
+                "depth_mm": round(depth_mm, 2),
+                "image": rgb_to_b64(overlay),
+                "explanation": _wrinkle_explanation(name, depth_mm),
+            }
+
+        avg_intensity = overall_score_accum / len(_WRINKLE_REGIONS)
+        score = int(max(0, min(100, 100 - (avg_intensity * 0.5))))
+        if score >= 80:
+            score_label = "Good"
+        elif score >= 60:
+            score_label = "Average"
+        else:
+            score_label = "Needs Attention"
+
+        return {
+            "score": score,
+            "score_label": score_label,
+            "regions": region_data,
+        }
+    except Exception as e:
+        print(f"[WARN] Wrinkle analysis failed: {e}")
+        import traceback; traceback.print_exc()
+        return {"score": None, "score_label": "N/A", "regions": {}}
+
+
 # Smile classifiers
 def classify_smile_width(smile_w_mm):
     if smile_w_mm is None: return "N/A"
@@ -4938,6 +5058,7 @@ def analyze_all():
 
         # ── Skin Analysis ──
         skin_data = analyze_skin(img_rgb, pts)
+        skin_data["wrinkles"] = analyze_wrinkles(img_rgb, pts)
 
 
         em = metrics.get("eyebrow", {})

@@ -2805,17 +2805,15 @@ def analyze_nose_advanced(img_rgb, pts):
         p_r_ala0, p_l_ala0 = get_pt(R_ALA), get_pt(L_ALA)
 
         img_landmarks = img_rgb.copy()
-        LC0 = (255, 255, 255)
-        cv2.line(img_landmarks, tuple(np.int32(p_bridge0)), tuple(np.int32(p_tip0)), LC0, 1, cv2.LINE_AA)
-        cv2.line(img_landmarks, tuple(np.int32(p_tip0)), tuple(np.int32(p_base0)), LC0, 1, cv2.LINE_AA)
+        LC0 = (255, 220, 200)
         cv2.line(img_landmarks, tuple(np.int32(p_r_ala0)), tuple(np.int32(p_l_ala0)), LC0, 1, cv2.LINE_AA)
-        tick_len = 10
+        tick_len = 4
         for pt in (p_r_ala0, p_l_ala0):
             pt_i = np.int32(pt)
-            cv2.line(img_landmarks, (pt_i[0], pt_i[1] - tick_len), (pt_i[0], pt_i[1] + tick_len), LC0, 1, cv2.LINE_AA)
-
+            cv2.line(img_landmarks, (pt_i[0], pt_i[1] - tick_len), (pt_i[0], pt_i[1] + tick_len), LC0, 2, cv2.LINE_AA)
+    
         landmarks_crop_pts = np.array([p_bridge0, p_tip0, p_base0, p_r_ala0, p_l_ala0])
-        nose_landmarks_image_b64 = rgb_to_b64(_nose_region_crop(img_landmarks, landmarks_crop_pts, pad_mult=0.9))
+        nose_landmarks_image_b64 = rgb_to_b64(img_landmarks)
 
         # ══ 1. ALAR FLARE ANALYSIS ══
         p_r_ala, p_l_ala = get_pt(R_ALA), get_pt(L_ALA)
@@ -2828,37 +2826,37 @@ def analyze_nose_advanced(img_rgb, pts):
         l_alar_deviation = float(p_l_eye[0] - p_l_ala[0])
         alar_flare_ratio = alar_distance / (eye_vertical_distance + 1e-9)
 
+        alar_color = (239, 255, 200)   
+
         if alar_flare_ratio < 0.95:
             alar_assessment = "No Alar Flare"
-            alar_color = (34, 197, 94)   # green
             alar_badge_bg, alar_badge_color = "#f0fdf4", "#166534"
             alar_explanation = ("Your alar bases stay close to vertical lines from the inner eye corners so "
                                  "the base does not widen laterally and the nostril wings do not dominate the "
                                  "lower face.")
         elif alar_flare_ratio < 1.1:
             alar_assessment = "Mild Alar Flare"
-            alar_color = (249, 115, 22)  # orange
             alar_badge_bg, alar_badge_color = "#fff7ed", "#c2410c"
             alar_explanation = ("Your alar bases sit slightly outside the vertical lines from the inner eye "
                                  "corners, giving the nostril wings a bit more lateral presence without "
                                  "overwhelming the lower face.")
         else:
             alar_assessment = "Significant Alar Flare"
-            alar_color = (239, 68, 68)   # red
             alar_badge_bg, alar_badge_color = "#fef2f2", "#b91c1c"
             alar_explanation = ("Your alar bases extend noticeably beyond the vertical lines from the inner "
                                  "eye corners, widening the nasal base and giving the nostril wings a more "
                                  "dominant role in the lower face.")
 
-        r_radius = max(int(np.linalg.norm(p_r_ala - p_nose_tip) * 0.2), 7)
-        l_radius = max(int(np.linalg.norm(p_l_ala - p_nose_tip) * 0.2), 7)
+        r_radius = max(int(np.linalg.norm(p_r_ala - p_nose_tip) * 0.1), 8)
+        l_radius = max(int(np.linalg.norm(p_l_ala - p_nose_tip) * 0.1), 8)
 
         img_alar = img_rgb.copy()
-        cv2.circle(img_alar, tuple(np.int32(p_r_ala)), r_radius, alar_color, 2, cv2.LINE_AA)
-        cv2.circle(img_alar, tuple(np.int32(p_l_ala)), l_radius, alar_color, 2, cv2.LINE_AA)
+        cv2.circle(img_alar, tuple(np.int32(p_r_ala)), r_radius, alar_color, 1, cv2.LINE_AA)
+        cv2.circle(img_alar, tuple(np.int32(p_l_ala)), l_radius, alar_color, 1, cv2.LINE_AA)
 
-        alar_crop_pts = np.array([p_r_eye, p_l_eye, p_nose_tip, get_pt(SUBNASALE), p_r_ala, p_l_ala])
-        alar_image_b64 = rgb_to_b64(_nose_region_crop(img_alar, alar_crop_pts, pad_mult=0.9))
+        img_h = img_alar.shape[0]
+    
+        alar_image_b64 = rgb_to_b64(img_alar)
 
         # ══ 2. BRIDGE THICKNESS ANALYSIS ══
         p_ul, p_ur = get_pt(UPPER_LEFT), get_pt(UPPER_RIGHT)
@@ -2897,10 +2895,9 @@ def analyze_nose_advanced(img_rgb, pts):
         smooth_curve = _catmull_rom_spline(corners, n_points=120)
 
         img_bridge = img_rgb.copy()
-        cv2.polylines(img_bridge, [smooth_curve], isClosed=True, color=(255, 255, 255), thickness=2, lineType=cv2.LINE_AA)
+        cv2.polylines(img_bridge, [smooth_curve], isClosed=True, color=(255, 255, 255), thickness=1, lineType=cv2.LINE_AA)
 
-        bridge_crop_pts = np.array([p_glabella, p_ul, p_ur, p_lr, p_ll, p_nose_tip])
-        bridge_image_b64 = rgb_to_b64(_nose_region_crop(img_bridge, bridge_crop_pts, pad_mult=1.1))
+        bridge_image_b64 = rgb_to_b64(img_bridge)
 
         # Static (non-computed) feature copy, matching notebook framing
         visible_nostrils_explanation = ("Your nostrils are clearly visible from the frontal view, with a "
@@ -2909,7 +2906,7 @@ def analyze_nose_advanced(img_rgb, pts):
         supratip_break_explanation = ("Your nasal profile transitions smoothly from the supratip area into the "
                                        "tip without a visible break or step-off, giving the dorsum a continuous, "
                                        "straight line down to the tip.")
-        supratip_image_b64 = rgb_to_b64(img_rgb)
+        supratip_image_b64 = rgb_to_b64(img_rgb.copy())
 
         visual_features = [
             {"title": "Visible Nostrils", "explanation": visible_nostrils_explanation, "image": nose_landmarks_image_b64},

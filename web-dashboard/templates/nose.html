@@ -443,18 +443,19 @@
         .analysis-metric-row .value { color: var(--text-primary); font-weight:600; font-family: monospace; }
 
         /* ── Other Visual Features (interactive tab selector) ── */
-        .nose-viz-layout { display: grid; grid-template-columns: 1fr 1.35fr; gap: 20px; }
+        .nose-viz-layout { display: grid; grid-template-columns: 1.6fr 1fr; gap: 20px; }
         .nose-viz-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-content: start; }
         .nose-viz-card {
             background: #fafafa;
             border: 1px solid var(--border-color);
             border-radius: 12px;
-            padding: 20px;
-            min-height: 130px;
-            display: flex;
-            align-items: flex-end;
+            overflow: hidden;
             cursor: pointer;
             transition: all 0.15s;
+            display: flex;
+            flex-direction: column;
+            min-height: 140px;
+            justify-content: flex-end;
         }
         .nose-viz-card:hover { border-color: #cbd5e1; }
         .nose-viz-card.active {
@@ -462,18 +463,25 @@
             border-color: #93c5fd;
             box-shadow: 0 0 0 1px #93c5fd;
         }
-        .nose-viz-card .nose-viz-card-title { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+        .nose-viz-card-thumb {
+            display: none;
+        }
+        .nose-viz-card .nose-viz-card-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+            padding: 20px;
+        }
         .nose-viz-image-panel {
             background: #fafafa;
             border: 1px solid var(--border-color);
             border-radius: 12px;
             overflow: hidden;
-            min-height: 280px;
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: center;
         }
-        .nose-viz-image-panel img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .nose-viz-image-panel img { width: 100%; height: auto; object-fit: contain; display: block; }
         .nose-viz-explanation-panel {
             margin-top: 16px;
             background: #fafafa;
@@ -693,44 +701,7 @@
             </div>
         </div>
 
-        <!-- Alar Flare Analysis -->
-        <div class="section-card">
-            <div class="section-title">Alar flare analysis</div>
-            <div class="section-subtitle">How the nostril wings (alar bases) sit relative to vertical lines from the inner eye corners.</div>
-            <div class="analysis-layout">
-                <img id="alarImage" src="" alt="Alar flare annotation">
-                <div>
-                    <div class="analysis-badge" id="alarBadge">--</div>
-                    <div class="analysis-panel-value" id="valAlarRatio">--</div>
-                    <p class="analysis-exp" id="valAlarExplanation">--</p>
-                    <div class="analysis-metrics-grid">
-                        <div class="analysis-metric-row"><span class="label">Alar Width</span><span class="value" id="valAlarWidth">--</span></div>
-                        <div class="analysis-metric-row"><span class="label">Eye Width</span><span class="value" id="valEyeWidth">--</span></div>
-                        <div class="analysis-metric-row"><span class="label">R Deviation</span><span class="value" id="valRDeviation">--</span></div>
-                        <div class="analysis-metric-row"><span class="label">L Deviation</span><span class="value" id="valLDeviation">--</span></div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
-        <!-- Bridge Thickness Analysis -->
-        <div class="section-card">
-            <div class="section-title">Bridge thickness analysis</div>
-            <div class="section-subtitle">Width of the nasal sidewalls relative to the vertical span of the bridge.</div>
-            <div class="analysis-layout">
-                <img id="bridgeImage" src="" alt="Bridge thickness annotation">
-                <div>
-                    <div class="analysis-badge" id="bridgeBadge">--</div>
-                    <div class="analysis-panel-value" id="valBridgeRatio">--</div>
-                    <p class="analysis-exp" id="valBridgeExplanation">--</p>
-                    <div class="analysis-metrics-grid">
-                        <div class="analysis-metric-row"><span class="label">Upper Bridge Width</span><span class="value" id="valBridgeUpper">--</span></div>
-                        <div class="analysis-metric-row"><span class="label">Lower Bridge Width</span><span class="value" id="valBridgeLower">--</span></div>
-                        <div class="analysis-metric-row" style="grid-column: span 2;"><span class="label">Bridge Vertical Span</span><span class="value" id="valBridgeSpan">--</span></div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
     </div>
 </div>
@@ -871,6 +842,7 @@
 
             vizGrid.innerHTML = features.map((f, i) => `
                 <div class="nose-viz-card${i === 0 ? ' active' : ''}" data-index="${i}">
+                    <img class="nose-viz-card-thumb" src="${f.image || ''}" alt="${f.title || ''}">
                     <div class="nose-viz-card-title">${f.title || 'N/A'}</div>
                 </div>
             `).join('');
